@@ -9,51 +9,32 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
-
+    
+    @Query(sort: \Item.copiedDate, order: .reverse) var clips: [Item]
+    
+    @State private var selectedClip: Item?
     var body: some View {
-        NavigationSplitView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                    } label: {
-                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
+        NavigationSplitView{
+            List(selection: $selectedClip){
+                Section("Texts"){
+                    ForEach(clips.filter { $0.type == ClipType.Text }) { clip in
+                        Text(clip.displayTitle).tag(clip)
                     }
                 }
-                .onDelete(perform: deleteItems)
-            }
-            .navigationSplitViewColumnWidth(min: 180, ideal: 200)
-            .toolbar {
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
+                Section("Images"){
+                    ForEach(clips.filter {$0.type == ClipType.Image }){ clip in
+                        Text(clip.displayTitle).tag(clip)
                     }
                 }
+                Section("Files and more"){
+                    ForEach(clips.filter {$0.type == ClipType.Files }){ clip in
+                        Text(clip.displayTitle).tag(clip)
+                    }
+                }
+                .navigationTitle("MultiClips")
             }
         } detail: {
-            Text("Select an item")
+            
         }
     }
-
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(timestamp: Date())
-            modelContext.insert(newItem)
-        }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            for index in offsets {
-                modelContext.delete(items[index])
-            }
-        }
-    }
-}
-
-#Preview {
-    ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
 }
