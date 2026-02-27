@@ -1,10 +1,3 @@
-//
-//  Item.swift
-//  MultiClips
-//
-//  Created by Nitish M on 22/02/26.
-//
-
 import Foundation
 import SwiftData
 
@@ -26,41 +19,27 @@ final class Item {
     var textCopied: String?
     var files: URL?
     @Attribute(.externalStorage) var rawData: Data?
-    
+
     var displayTitle: String {
-        if let text = textCopied, !text.isEmpty {
-            return text
-        }
-        
-        if let url = files {
-            return url.lastPathComponent
-        }
-        
+        if let text = textCopied, !text.isEmpty { return text }
+        if let url = files { return url.lastPathComponent }
         switch type {
-        case .Texts:
-            return "Text Copied"
-        case .Images:
-            return "Image Copied"
-        case .Medias:
-            return "Media Copied"
-        case .Documents:
-            return "Document Copied"
-        case .Files:
-            return "File Copied"
-        case .Links:
-            return "Link Copied"
-        case .Unknown:
-            return "Unknown Clip"
+        case .Texts: return "Text Copied"
+        case .Images: return "Image Copied"
+        case .Medias: return "Media Copied"
+        case .Documents: return "Document Copied"
+        case .Files: return "File Copied"
+        case .Links: return "Link Copied"
+        case .Unknown: return "Unknown Clip"
         }
     }
-    
+
     init(id: UUID = UUID(),
          copiedDate: Date = Date(),
          type: ClipType,
          textCopied: String? = nil,
          files: URL? = nil,
          rawData: Data? = nil) {
-        
         self.id = id
         self.copiedDate = copiedDate
         self.type = type
