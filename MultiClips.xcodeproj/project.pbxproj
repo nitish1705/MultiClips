@@ -10,9 +10,22 @@
 		68DBEF922F4B3B1200CE0253 /* MultiClips.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MultiClips.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		68B897782F534BCF001146EF /* Exceptions for "MultiClips" folder in "MultiClips" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 68DBEF912F4B3B1200CE0253 /* MultiClips */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		68DBEF942F4B3B1200CE0253 /* MultiClips */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				68B897782F534BCF001146EF /* Exceptions for "MultiClips" folder in "MultiClips" target */,
+			);
 			path = MultiClips;
 			sourceTree = "<group>";
 		};
@@ -259,6 +272,8 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = MultiClips/Info.plist;
+				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -291,6 +306,8 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = MultiClips/Info.plist;
+				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

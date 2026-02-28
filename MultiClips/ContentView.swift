@@ -2,19 +2,19 @@ import SwiftUI
 import SwiftData
 import AppKit
 import UniformTypeIdentifiers
-internal import Combine
 
+// MARK: - Notification name (used by AppDelegate + copy buttons)
 extension Notification.Name {
     static let skipNextPasteboardChange = Notification.Name("skipNextPasteboardChange")
 }
+
+// MARK: - Main Content View
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Item.copiedDate, order: .reverse) var clips: [Item]
 
     @State private var showDeleteAllAlert = false
-    @State private var lastChangeCount: Int = NSPasteboard.general.changeCount
-    @State private var skipNextPasteboardChange = false
 
     @AppStorage("hasSeenWelcome") private var hasSeenWelcome = false
     @State private var showWelcome = false
@@ -49,9 +49,21 @@ struct ContentView: View {
                         NavigationLink { Text("General Settings") } label: {
                             Label("General Settings", systemImage: "gearshape")
                         }
+
                         Toggle(isOn: .constant(true)) {
                             Label("iCloud Sync", systemImage: "icloud")
                         }
+
+                        Toggle(isOn: Binding(
+                            get: { LoginItemManager.isEnabled },
+                            set: { newValue in
+                                if newValue { LoginItemManager.enable() }
+                                else { LoginItemManager.disable() }
+                            }
+                        )) {
+                            Label("Launch at Login", systemImage: "arrow.clockwise")
+                        }
+
                         Button(role: .destructive) { showDeleteAllAlert = true } label: {
                             Label("Clear History", systemImage: "trash").foregroundColor(.red)
                         }
@@ -75,14 +87,7 @@ struct ContentView: View {
                     .onDisappear { hasSeenWelcome = true }
             }
         }
-        .onReceive(Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()) { _ in
-            checkPasteboard()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .skipNextPasteboardChange)) { _ in
-            skipNextPasteboardChange = true
-        }
         .onAppear {
-            lastChangeCount = NSPasteboard.general.changeCount
             if !hasSeenWelcome { showWelcome = true }
         }
     }
@@ -94,124 +99,13 @@ struct ContentView: View {
         }
     }
 
-    private func checkPasteboard() {
-        let pb = NSPasteboard.general
-        let cc = pb.changeCount
-        guard cc != lastChangeCount else { return }
-        lastChangeCount = cc
-
-        if skipNextPasteboardChange {
-            skipNextPasteboardChange = false
-            return
-        }
-
-        let content = extractPasteboardContent(pb)
-        guard !(content.type == .Unknown && content.rawData == nil && content.text == nil && content.fileURL == nil && content.imageData == nil) else { return }
-
-        if let existing = findExistingClip(for: content) {
-            existing.copiedDate = Date()
-            if existing.type == .Images, existing.rawData == nil, let d = content.imageData {
-                existing.rawData = d
-            }
-        } else {
-            modelContext.insert(createItem(from: content))
-        }
-
-        try? modelContext.save()
-    }
-
-    private struct PasteboardContent {
-        var type: ClipType
-        var text: String?
-        var fileURL: URL?
-        var imageData: Data?
-        var rawData: Data?
-    }
-
-    private func extractPasteboardContent(_ pb: NSPasteboard) -> PasteboardContent {
-        if let urls = pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL],
-           let url = urls.first, url.isFileURL {
-            let t = classifyFileURL(url)
-            if t == .Images {
-                let imgData = readImageBytesFromFileURL(url)
-                return PasteboardContent(type: .Images, text: nil, fileURL: url, imageData: imgData, rawData: nil)
-            }
-            return PasteboardContent(type: t, text: nil, fileURL: url, imageData: nil, rawData: nil)
-        }
-
-        if let img = getImageDataFromPasteboard(pb) {
-            return PasteboardContent(type: .Images, text: nil, fileURL: nil, imageData: img, rawData: nil)
-        }
-
-        if let s = pb.string(forType: .string), !s.isEmpty {
-            let trimmed = s.trimmingCharacters(in: .whitespacesAndNewlines)
-            if let u = URL(string: trimmed), let scheme = u.scheme?.lowercased(), (scheme == "http" || scheme == "https"), u.host != nil {
-                return PasteboardContent(type: .Links, text: trimmed, fileURL: nil, imageData: nil, rawData: nil)
-            }
-            return PasteboardContent(type: .Texts, text: s, fileURL: nil, imageData: nil, rawData: nil)
-        }
-
-        return PasteboardContent(type: .Unknown, text: nil, fileURL: nil, imageData: nil, rawData: pb.data(forType: pb.types?.first ?? .string))
-    }
-
-    private func readImageBytesFromFileURL(_ url: URL) -> Data? {
-        if let d = try? Data(contentsOf: url), !d.isEmpty { return d }
-        guard let img = NSImage(contentsOf: url) else { return nil }
-        return nsImageToPNG(img)
-    }
-
-    private func getImageDataFromPasteboard(_ pb: NSPasteboard) -> Data? {
-        if let png = pb.data(forType: .png) { return png }
-        if let tiff = pb.data(forType: .tiff) { return tiff }
-        if let imgs = pb.readObjects(forClasses: [NSImage.self], options: nil) as? [NSImage],
-           let img = imgs.first,
-           let tiff = img.tiffRepresentation {
-            return tiff
-        }
-        return nil
-    }
-
-    private func nsImageToPNG(_ image: NSImage) -> Data? {
-        guard let tiff = image.tiffRepresentation,
-              let rep = NSBitmapImageRep(data: tiff),
-              let png = rep.representation(using: .png, properties: [:]) else { return nil }
-        return png
-    }
-
-    private func findExistingClip(for c: PasteboardContent) -> Item? {
-        for clip in clips where clip.type == c.type {
-            switch c.type {
-            case .Texts, .Links:
-                if c.text == clip.textCopied { return clip }
-            case .Images:
-                if let u = c.fileURL, let ex = clip.files, u.standardizedFileURL == ex.standardizedFileURL { return clip }
-                if let d = c.imageData, let exd = clip.rawData, d.count == exd.count, d == exd { return clip }
-            case .Files, .Documents, .Medias:
-                if let u = c.fileURL, let ex = clip.files, u.standardizedFileURL == ex.standardizedFileURL { return clip }
-            case .Unknown:
-                if let d = c.rawData, let exd = clip.rawData, d == exd { return clip }
-            }
-        }
-        return nil
-    }
-
-    private func createItem(from c: PasteboardContent) -> Item {
-        Item(type: c.type, textCopied: c.text, files: c.fileURL, rawData: c.imageData ?? c.rawData)
-    }
-
-    private func classifyFileURL(_ url: URL) -> ClipType {
-        guard let t = UTType(filenameExtension: url.pathExtension) else { return .Files }
-        if t.conforms(to: .image) { return .Images }
-        if t.conforms(to: .audiovisualContent) { return .Medias }
-        if t.conforms(to: .pdf) || t.conforms(to: .spreadsheet) || t.conforms(to: .presentation) || t.conforms(to: .text) { return .Documents }
-        return .Files
-    }
-
     private func deleteAllClips() {
         clips.forEach { modelContext.delete($0) }
         try? modelContext.save()
     }
 }
+
+// MARK: - Grid View
 
 struct ClipGridView: View {
     let title: String
@@ -249,6 +143,8 @@ struct ClipGridView: View {
         .navigationTitle(title)
     }
 }
+
+// MARK: - Detail Sheet
 
 struct ClipDetailSheet: View {
     let clip: Item
@@ -329,6 +225,8 @@ struct ClipDetailSheet: View {
     }
 }
 
+// MARK: - Clip Card
+
 struct ClipCard: View {
     let clip: Item
 
@@ -384,6 +282,8 @@ struct ClipCard: View {
     }
 }
 
+// MARK: - Shared Image Helper
+
 func imageForClip(_ clip: Item) -> NSImage? {
     if let data = clip.rawData, let img = NSImage(data: data) { return img }
     if let data = clip.rawData, let rep = NSBitmapImageRep(data: data) {
@@ -392,6 +292,8 @@ func imageForClip(_ clip: Item) -> NSImage? {
     if let url = clip.files, let img = NSImage(contentsOf: url) { return img }
     return nil
 }
+
+// MARK: - History View
 
 struct HistoryView: View {
     let clips: [Item]
@@ -406,6 +308,8 @@ struct HistoryView: View {
         .navigationTitle("History")
     }
 }
+
+// MARK: - Welcome View
 
 struct WelcomeView: View {
     @Binding var isPresented: Bool
@@ -422,6 +326,155 @@ struct WelcomeView: View {
             .frame(width: 420, height: 300)
             .background(.ultraThinMaterial)
             .cornerRadius(20)
+        }
+    }
+}
+
+// MARK: - Menu Bar View
+
+struct MenuBarView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \Item.copiedDate, order: .reverse) var clips: [Item]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Image(systemName: "clipboard.fill").foregroundStyle(.orange)
+                Text("MultiClips").font(.headline)
+                Spacer()
+                Text("\(clips.count) clips").font(.caption).foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+
+            Divider()
+
+            if clips.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "clipboard").font(.largeTitle).foregroundStyle(.secondary)
+                    Text("No clips yet").foregroundStyle(.secondary)
+                    Text("Copy something to get started").font(.caption).foregroundStyle(.tertiary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 30)
+            } else {
+                ScrollView {
+                    VStack(spacing: 2) {
+                        ForEach(clips.prefix(10)) { clip in
+                            MenuBarClipRow(clip: clip) { copyClipToPasteboard(clip) }
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                .frame(maxHeight: 320)
+            }
+
+            Divider()
+
+            VStack(spacing: 2) {
+                Button {
+                    if let d = NSApplication.shared.delegate as? AppDelegate { d.showMainWindow() }
+                } label: {
+                    HStack { Image(systemName: "macwindow"); Text("Open MultiClips"); Spacer() }
+                        .padding(.horizontal, 12).padding(.vertical, 6).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    clips.forEach { modelContext.delete($0) }
+                    try? modelContext.save()
+                } label: {
+                    HStack { Image(systemName: "trash"); Text("Clear History"); Spacer() }
+                        .foregroundStyle(.red)
+                        .padding(.horizontal, 12).padding(.vertical, 6).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                Divider()
+
+                Button {
+                    NSApplication.shared.terminate(nil)
+                } label: {
+                    HStack { Image(systemName: "power"); Text("Quit MultiClips"); Spacer() }
+                        .padding(.horizontal, 12).padding(.vertical, 6).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.vertical, 4)
+        }
+        .frame(width: 300)
+    }
+
+    private func copyClipToPasteboard(_ clip: Item) {
+        NotificationCenter.default.post(name: .skipNextPasteboardChange, object: nil)
+        let pb = NSPasteboard.general
+        pb.clearContents()
+
+        switch clip.type {
+        case .Texts, .Links:
+            if let t = clip.textCopied { pb.setString(t, forType: .string) }
+        case .Images:
+            if let img = imageForClip(clip) {
+                pb.writeObjects([img])
+                if let tiff = img.tiffRepresentation { pb.setData(tiff, forType: .tiff) }
+            }
+            if let file = clip.files { pb.writeObjects([file as NSURL]) }
+        case .Files, .Documents, .Medias:
+            if let u = clip.files { pb.writeObjects([u as NSURL]) }
+        case .Unknown:
+            if let d = clip.rawData { pb.setData(d, forType: .string) }
+        }
+
+        clip.copiedDate = Date()
+        try? modelContext.save()
+    }
+}
+
+// MARK: - Menu Bar Clip Row
+
+struct MenuBarClipRow: View {
+    let clip: Item
+    let onCopy: () -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: onCopy) {
+            HStack(spacing: 10) {
+                Image(systemName: iconName(for: clip.type))
+                    .font(.system(size: 14)).foregroundStyle(.orange).frame(width: 20)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(clipPreview).font(.callout).lineLimit(1).truncationMode(.tail)
+                    Text(clip.copiedDate.formatted(date: .omitted, time: .shortened)).font(.caption2).foregroundStyle(.tertiary)
+                }
+                Spacer()
+                if isHovered { Image(systemName: "doc.on.doc").font(.caption).foregroundStyle(.secondary) }
+            }
+            .padding(.horizontal, 12).padding(.vertical, 6)
+            .background(isHovered ? Color.primary.opacity(0.08) : Color.clear)
+            .cornerRadius(6).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
+    }
+
+    private var clipPreview: String {
+        switch clip.type {
+        case .Texts, .Links: return clip.textCopied ?? "Empty"
+        case .Images: return clip.files != nil ? "🖼 \(clip.files!.lastPathComponent)" : "🖼 Screenshot"
+        case .Files, .Documents, .Medias: return clip.files?.lastPathComponent ?? clip.type.rawValue
+        case .Unknown: return "Unknown Clip"
+        }
+    }
+
+    private func iconName(for type: ClipType) -> String {
+        switch type {
+        case .Texts: return "doc.text"
+        case .Images: return "photo"
+        case .Medias: return "play.rectangle"
+        case .Documents: return "doc"
+        case .Files: return "folder"
+        case .Links: return "link"
+        case .Unknown: return "questionmark.square"
         }
     }
 }

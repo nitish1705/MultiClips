@@ -1,23 +1,15 @@
-//
-//  MultiClipsApp.swift
-//  MultiClips
-//
-//  Created by Nitish M on 22/02/26.
-//
-
 import SwiftUI
 import SwiftData
 
 @main
 struct MultiClipsApp: App {
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            Item.self,
-        ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
+    let sharedModelContainer: ModelContainer = {
+        let schema = Schema([Item.self])
+        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            return try ModelContainer(for: schema, configurations: [config])
         } catch {
             fatalError("Could not create ModelContainer: \(error)")
         }
@@ -26,7 +18,20 @@ struct MultiClipsApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .modelContainer(sharedModelContainer)
+                .onAppear {
+                    // Give AppDelegate access to the shared container
+                    appDelegate.modelContainer = sharedModelContainer
+                }
         }
-        .modelContainer(sharedModelContainer)
+
+        MenuBarExtra("MultiClips", systemImage: "clipboard.fill") {
+            MenuBarView()
+                .modelContainer(sharedModelContainer)
+                .onAppear {
+                    appDelegate.modelContainer = sharedModelContainer
+                }
+        }
+        .menuBarExtraStyle(.window)
     }
 }
