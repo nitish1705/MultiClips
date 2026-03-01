@@ -16,7 +16,7 @@ struct MultiClipsApp: App {
     }()
 
     var body: some Scene {
-        WindowGroup {
+        WindowGroup(id: "main-window") {
             ContentView()
                 .modelContainer(sharedModelContainer)
                 .onAppear {

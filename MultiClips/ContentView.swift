@@ -342,6 +342,8 @@ struct WelcomeView: View {
 struct MenuBarView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Item.copiedDate, order: .reverse) var clips: [Item]
+    
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(spacing: 0) {
@@ -380,7 +382,7 @@ struct MenuBarView: View {
 
             VStack(spacing: 2) {
                 Button {
-                    if let d = NSApplication.shared.delegate as? AppDelegate { d.showMainWindow() }
+                    openWindow(id: "main-window")
                 } label: {
                     HStack { Image(systemName: "macwindow"); Text("Open MultiClips"); Spacer() }
                         .padding(.horizontal, 12).padding(.vertical, 6).contentShape(Rectangle())
