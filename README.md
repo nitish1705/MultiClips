@@ -48,7 +48,7 @@ Built with SwiftUI. Feels right at home on macOS with proper dark mode support, 
 
 | Main Window | Menu Bar |
 |---|---|
-| ![Main Window](screenshots/main-window.png) | ![Menu Bar](screenshots/menu-bar.png) |
+| ![Main Window](Screenshots/main-window.png) | ![Menu Bar](Screenshots/menu-bar.png) |
 
 ---
 
