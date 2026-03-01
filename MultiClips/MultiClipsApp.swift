@@ -20,7 +20,6 @@ struct MultiClipsApp: App {
             ContentView()
                 .modelContainer(sharedModelContainer)
                 .onAppear {
-                    // Give AppDelegate access to the shared container
                     appDelegate.modelContainer = sharedModelContainer
                 }
         }

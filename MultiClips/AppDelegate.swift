@@ -10,6 +10,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var timer: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.setActivationPolicy(.accessory)
         lastChangeCount = NSPasteboard.general.changeCount
 
         // Listen for skip notifications from copy buttons

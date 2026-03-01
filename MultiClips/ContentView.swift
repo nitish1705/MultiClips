@@ -19,6 +19,9 @@ struct ContentView: View {
     @AppStorage("hasSeenWelcome") private var hasSeenWelcome = false
     @State private var showWelcome = false
 
+    @AppStorage("isICloudSyncEnabled") private var isICloudSyncEnabled: Bool = true
+        
+    @State private var launchAtLogin: Bool = LoginItemManager.isEnabled
     var body: some View {
         ZStack {
             NavigationSplitView {
@@ -50,18 +53,22 @@ struct ContentView: View {
                             Label("General Settings", systemImage: "gearshape")
                         }
 
-                        Toggle(isOn: .constant(true)) {
+                        Toggle(isOn: $isICloudSyncEnabled) {
                             Label("iCloud Sync", systemImage: "icloud")
                         }
-
-                        Toggle(isOn: Binding(
-                            get: { LoginItemManager.isEnabled },
-                            set: { newValue in
-                                if newValue { LoginItemManager.enable() }
-                                else { LoginItemManager.disable() }
-                            }
-                        )) {
+                        
+                        Toggle(isOn: $launchAtLogin) {
                             Label("Launch at Login", systemImage: "arrow.clockwise")
+                        }
+                        .onChange(of: launchAtLogin) {oldValue, newValue in
+                            if newValue {
+                                LoginItemManager.enable()
+                            } else {
+                                LoginItemManager.disable()
+                            }
+                            DispatchQueue.main.async {
+                                launchAtLogin = LoginItemManager.isEnabled
+                            }
                         }
 
                         Button(role: .destructive) { showDeleteAllAlert = true } label: {
