@@ -75,15 +75,19 @@ Build and run with **⌘R** in Xcode.
 - macOS 14.0 (Sonoma) or later
 - Xcode 15.0 or later
 
-### First Launch (Important)
+## First Launch (Important)
 
-Since this app is not yet notarized by Apple, macOS may block it on first launch:
+Since this app is not yet notarized by Apple, macOS may block it on first launch.
 
-1. Go to **Applications**
-2. **Right-click** MultiClips → click **Open**
-3. Click **Open** again in the confirmation dialog
+1. Open **MultiClips** from the **Applications** folder.
+2. macOS will show a message saying the app cannot be opened. Click **Done**.
+3. Open **System Settings**.
+4. Go to **Privacy & Security**.
+5. Scroll down and find the message that **MultiClips was blocked from use**.
+6. Click **Open Anyway**.
+7. Confirm by clicking **Open** in the dialog.
 
-After the first launch, it will open normally.
+After this, **MultiClips** will launch normally.
 
 ---
 
