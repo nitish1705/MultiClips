@@ -21,6 +21,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil
         )
 
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleOpenMainWindowNotification),
+            name: .openMainWindowRequest,
+            object: nil
+        )
+
         // Start the pasteboard monitoring timer
         timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             self?.checkPasteboard()
@@ -38,6 +45,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func handleSkipNotification() {
         skipNextPasteboardChange = true
+    }
+
+    @objc private func handleOpenMainWindowNotification() {
+        showMainWindow()
     }
 
     // MARK: - Pasteboard Monitoring
@@ -102,17 +113,60 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return PasteboardContent(type: .Images, text: nil, fileURL: nil, imageData: img, rawData: nil)
         }
 
-        if let s = pb.string(forType: .string), !s.isEmpty {
-            let trimmed = s.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let text = getTextFromPasteboard(pb) {
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else {
+                return PasteboardContent(type: .Unknown, text: nil, fileURL: nil, imageData: nil,
+                                         rawData: pb.data(forType: pb.types?.first ?? .string))
+            }
+
             if let u = URL(string: trimmed), let scheme = u.scheme?.lowercased(),
                (scheme == "http" || scheme == "https"), u.host != nil {
                 return PasteboardContent(type: .Links, text: trimmed, fileURL: nil, imageData: nil, rawData: nil)
             }
-            return PasteboardContent(type: .Texts, text: s, fileURL: nil, imageData: nil, rawData: nil)
+            return PasteboardContent(type: .Texts, text: text, fileURL: nil, imageData: nil, rawData: nil)
         }
 
         return PasteboardContent(type: .Unknown, text: nil, fileURL: nil, imageData: nil,
                                  rawData: pb.data(forType: pb.types?.first ?? .string))
+    }
+
+    private func getTextFromPasteboard(_ pb: NSPasteboard) -> String? {
+        // Fast path for plain text providers.
+        if let s = pb.string(forType: .string), !s.isEmpty {
+            return s
+        }
+
+        // Some apps expose NSString via object reading rather than .string type.
+        if let values = pb.readObjects(forClasses: [NSString.self], options: nil) as? [NSString],
+           let first = values.first {
+            let s = first as String
+            if !s.isEmpty { return s }
+        }
+
+        // Rich text fallback (common in editors/web apps): decode RTF into plain text.
+        if let rtf = pb.data(forType: .rtf),
+           let attributed = try? NSAttributedString(
+               data: rtf,
+               options: [.documentType: NSAttributedString.DocumentType.rtf],
+               documentAttributes: nil
+           ) {
+            let s = attributed.string
+            if !s.isEmpty { return s }
+        }
+
+        // HTML fallback from web views/electron apps.
+        if let html = pb.data(forType: .html),
+           let attributed = try? NSAttributedString(
+               data: html,
+               options: [.documentType: NSAttributedString.DocumentType.html],
+               documentAttributes: nil
+           ) {
+            let s = attributed.string
+            if !s.isEmpty { return s }
+        }
+
+        return nil
     }
 
     private func readImageBytesFromFileURL(_ url: URL) -> Data? {
