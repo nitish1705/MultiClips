@@ -62,7 +62,7 @@ Built with SwiftUI. Feels right at home on macOS with proper dark mode support, 
 ### Option 1: Download Release
 
 1. Go to the [Releases](../../releases) page
-2. Download **MultiClips_v2.0.dmg**
+2. Download **MultiClips.dmg**
 3. Open the DMG and drag **MultiClips** into your **Applications** folder
 4. Eject the DMG
 
