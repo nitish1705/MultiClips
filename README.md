@@ -1,45 +1,41 @@
 # MultiClips
 
-A lightweight, native macOS clipboard manager that remembers everything you copy.
+MultiClips is a lightweight native macOS clipboard manager that keeps your recent copy history available at any time.
 
-Built with **SwiftUI** and **SwiftData** for macOS 14+.
+It is built with SwiftUI and SwiftData for macOS 14+.
 
 ---
 
-## The Problem
+## Why This App Exists
 
-macOS only remembers your **most recent** clipboard item. Copy something new and the old one is gone forever.
-
-## The Solution
-
-MultiClips runs silently in your menu bar, automatically capturing every text, image, file, link, and document you copy. Access your full clipboard history anytime with a single click.
+macOS only keeps the latest clipboard entry. MultiClips runs in the menu bar and keeps a local history of what you copy, including text, links, images, and files.
 
 ---
 
 ## Features
 
-### 📋 Multi-Clipboard Storage
+### Multi-Clipboard Storage
 Stores every clipboard entry — texts, images, files, documents, links, and media — organized by type.
 
-### 🖥️ Menu Bar App
+### Menu Bar App
 Lives in your macOS menu bar. Runs in the background even when the main window is closed. Click the clipboard icon to quickly copy any previous item.
 
-### 🔍 Smart Classification
+### Smart Classification
 Automatically categorizes clips into **Texts**, **Images**, **Media**, **Documents**, **Files**, and **Links**.
 
-### 🚫 Duplicate Detection
+### Duplicate Detection
 Copies the same text twice? MultiClips recognizes it and bumps the existing entry to the top instead of creating a duplicate.
 
-### 🖼️ Image Support
+### Image Support
 Full support for screenshots (⌘⇧4), copied images from apps, and image files (JPG, PNG, HEIC, etc.) copied from Finder — with thumbnail previews.
 
-### 🔒 Privacy First
+### Privacy First
 All clipboard data stays **on your device**, stored locally using SwiftData. No cloud uploads. No analytics. No tracking.
 
-### 🚀 Launch at Login
+### Launch at Login
 Optional toggle to start MultiClips automatically when you log in to your Mac.
 
-### 🎨 Native macOS Design
+### Native macOS Design
 Built with SwiftUI. Feels right at home on macOS with proper dark mode support, material backgrounds, and system fonts.
 
 ---
@@ -74,6 +70,33 @@ Build and run with **⌘R** in Xcode.
 **Requirements:**
 - macOS 14.0 (Sonoma) or later
 - Xcode 15.0 or later
+
+### Local DMG Build
+
+To package a local DMG from the command line:
+
+```bash
+./scripts/build_dmg.sh
+```
+
+Default output:
+
+```bash
+build/MultiClips-local.dmg
+```
+
+Optional parameters:
+
+```bash
+./scripts/build_dmg.sh MultiClips MultiClips MultiClips.xcodeproj build unsigned
+```
+
+Parameters are:
+- App name
+- Xcode scheme name
+- Xcode project file
+- Build output root folder
+- Sign mode (`unsigned` by default, or `signed`)
 
 ## First Launch (Important)
 
@@ -120,8 +143,7 @@ Appears instantly in main window + menu bar
 |---|---|
 | `MultiClipsApp.swift` | App entry point — WindowGroup + MenuBarExtra |
 | `AppDelegate.swift` | Pasteboard monitoring, window management, app lifecycle |
-| `ContentView.swift` | Main window UI — sidebar, grid, detail sheet |
-| `MenuBarView.swift` | Menu bar dropdown — quick access to recent clips |
+| `ContentView.swift` | Main window UI and menu bar dropdown components |
 | `Item.swift` | SwiftData model — stores clip type, text, file URL, raw data |
 | `LoginItemManager.swift` | Launch at Login via ServiceManagement |
 
@@ -134,6 +156,78 @@ Appears instantly in main window + menu bar
 - **AppKit** — NSPasteboard monitoring, window management
 - **UniformTypeIdentifiers** — File type classification
 - **ServiceManagement** — Login item registration
+
+---
+
+## Performance and Testing
+
+MultiClips is designed for lightweight background usage. Clipboard polling runs every 0.5 seconds and writes only when the pasteboard change count updates.
+
+Current testing approach:
+- Manual testing for text, link, image, and file copy flows
+- Duplicate detection verification across repeated copy actions
+- Menu bar copy-back checks to avoid self-ingestion loops
+
+Observed behavior from local development runs:
+- Stable background operation with no continuous CPU spikes during idle usage
+- Memory usage scales with number and size of stored clips (especially image-heavy histories)
+
+Planned additions:
+- Documented RAM snapshots at different history sizes
+- Repeatable stress test notes for large clipboard sessions
+
+### Automated Performance Test Script
+
+An automated sampler is available at `scripts/performance_test.sh`.
+
+It captures:
+- RSS memory (MB)
+- Virtual memory size (MB)
+- CPU usage (%)
+
+Run it while MultiClips is open:
+
+```bash
+./scripts/performance_test.sh
+```
+
+Optional arguments:
+
+```bash
+./scripts/performance_test.sh MultiClips 120 1 performance-results
+```
+
+Arguments are:
+- App name
+- Duration in seconds
+- Sampling interval in seconds
+- Output directory
+
+Outputs:
+- CSV timeline with per-sample data
+- Summary file with min/max/avg metrics
+
+If Python 3 and matplotlib are available, a chart image is generated automatically:
+- PNG chart beside the CSV (for example `perf-<timestamp>.png`)
+
+Install visualization dependency:
+
+```bash
+python3 -m pip install matplotlib
+```
+
+Manual visualization command:
+
+```bash
+python3 scripts/visualize_performance.py performance-results/perf-20260319-204401.csv
+```
+
+---
+
+## Version History
+
+A dedicated release history is available in the app under Version History.
+Repository-side release notes are tracked in `RELEASE_NOTES.md`.
 
 ---
 
