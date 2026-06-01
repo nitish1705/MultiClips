@@ -6,6 +6,44 @@ import UniformTypeIdentifiers
 // MARK: - Notification name (used by AppDelegate + copy buttons)
 extension Notification.Name {
     static let skipNextPasteboardChange = Notification.Name("skipNextPasteboardChange")
+    static let openMainWindowRequest = Notification.Name("openMainWindowRequest")
+}
+
+enum ThemeOption: String, CaseIterable, Identifiable {
+    case orange
+    case blue
+    case green
+    case pink
+    case purple
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .orange: return "Sunset Orange"
+        case .blue: return "Ocean Blue"
+        case .green: return "Forest Green"
+        case .pink: return "Rose Pink"
+        case .purple: return "Royal Purple"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .orange: return .orange
+        case .blue: return .blue
+        case .green: return .green
+        case .pink: return .pink
+        case .purple: return .purple
+        }
+    }
+}
+
+struct AppRelease: Identifiable {
+    let id = UUID()
+    let version: String
+    let date: String
+    let highlights: [String]
 }
 
 // MARK: - Main Content View
@@ -20,14 +58,22 @@ struct ContentView: View {
     @State private var showWelcome = false
 
     @AppStorage("isICloudSyncEnabled") private var isICloudSyncEnabled: Bool = true
+    @AppStorage("selectedTheme") private var selectedThemeRaw = ThemeOption.orange.rawValue
+    @State private var selectedSidebarItem: String = "clips:All Clips"
         
     @State private var launchAtLogin: Bool = LoginItemManager.isEnabled
+
+    private var activeTheme: ThemeOption {
+        ThemeOption(rawValue: selectedThemeRaw) ?? .orange
+    }
+
     var body: some View {
         ZStack {
             NavigationSplitView {
                 List {
                     Section("Clips") {
                         nav("All Clips", "tray.2", clips)
+                        nav("Starred", "star.fill", clips.filter { $0.isStarred })
                         nav("Texts", "doc.text", clips.filter { $0.type == .Texts })
                         nav("Images", "photo", clips.filter { $0.type == .Images })
                         nav("Media", "play.rectangle", clips.filter { $0.type == .Medias })
@@ -36,21 +82,37 @@ struct ContentView: View {
                         nav("Links", "link", clips.filter { $0.type == .Links })
                     }
 
-                    Section("Home") {
-                        NavigationLink { Text("Favorites View") } label: {
-                            Label("Favorites", systemImage: "star")
-                        }
-                    }
-
                     Section("History") {
-                        NavigationLink { HistoryView(clips: clips) } label: {
+                        Button {
+                            selectedSidebarItem = "history:recent"
+                        } label: {
                             Label("Recent Activity", systemImage: "clock.arrow.circlepath")
+                                .foregroundStyle(sidebarRowForeground(for: "history:recent"))
+                                .tint(sidebarRowForeground(for: "history:recent"))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
                         }
+                        .buttonStyle(.plain)
+                        .listRowBackground(sidebarRowBackground(for: "history:recent"))
                     }
 
                     Section("Settings") {
-                        NavigationLink { Text("General Settings") } label: {
+                        Button {
+                            selectedSidebarItem = "settings:general"
+                        } label: {
                             Label("General Settings", systemImage: "gearshape")
+                                .foregroundStyle(sidebarRowForeground(for: "settings:general"))
+                                .tint(sidebarRowForeground(for: "settings:general"))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .listRowBackground(sidebarRowBackground(for: "settings:general"))
+
+                        Picker("Theme", selection: $selectedThemeRaw) {
+                            ForEach(ThemeOption.allCases) { theme in
+                                Text(theme.title).tag(theme.rawValue)
+                            }
                         }
 
                         Toggle(isOn: $isICloudSyncEnabled) {
@@ -81,10 +143,37 @@ struct ContentView: View {
                             Text("This will permanently delete all \(clips.count) clip\(clips.count == 1 ? "" : "s").")
                         }
                     }
+
+                    Section("About") {
+                        Button {
+                            selectedSidebarItem = "about:credits"
+                        } label: {
+                            Label("Developer / Credits", systemImage: "person.crop.circle")
+                                .foregroundStyle(sidebarRowForeground(for: "about:credits"))
+                                .tint(sidebarRowForeground(for: "about:credits"))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .listRowBackground(sidebarRowBackground(for: "about:credits"))
+
+                        Button {
+                            selectedSidebarItem = "about:versions"
+                        } label: {
+                            Label("Version History", systemImage: "clock.badge.checkmark")
+                                .foregroundStyle(sidebarRowForeground(for: "about:versions"))
+                                .tint(sidebarRowForeground(for: "about:versions"))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .listRowBackground(sidebarRowBackground(for: "about:versions"))
+                    }
                 }
                 .navigationTitle("MultiClips")
+                .tint(activeTheme.color)
             } detail: {
-                Text("Select a category from the sidebar").foregroundStyle(.secondary)
+                selectedDetailView
             }
 
             if showWelcome {
@@ -101,9 +190,59 @@ struct ContentView: View {
 
     @ViewBuilder
     private func nav(_ title: String, _ icon: String, _ data: [Item]) -> some View {
-        NavigationLink { ClipGridView(title: title, clips: data) } label: {
-            Label(title, systemImage: icon).badge(data.count)
+        let key = "clips:\(title)"
+        Button {
+            selectedSidebarItem = key
+        } label: {
+            Label(title, systemImage: icon)
+                .badge(data.count)
+                .foregroundStyle(sidebarRowForeground(for: key))
+                .tint(sidebarRowForeground(for: key))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .listRowBackground(sidebarRowBackground(for: key))
+    }
+
+    @ViewBuilder
+    private var selectedDetailView: some View {
+        switch selectedSidebarItem {
+        case "clips:All Clips":
+            ClipGridView(title: "All Clips", clips: clips)
+        case "clips:Starred":
+            ClipGridView(title: "Starred", clips: clips.filter { $0.isStarred })
+        case "clips:Texts":
+            ClipGridView(title: "Texts", clips: clips.filter { $0.type == .Texts })
+        case "clips:Images":
+            ClipGridView(title: "Images", clips: clips.filter { $0.type == .Images })
+        case "clips:Media":
+            ClipGridView(title: "Media", clips: clips.filter { $0.type == .Medias })
+        case "clips:Documents":
+            ClipGridView(title: "Documents", clips: clips.filter { $0.type == .Documents })
+        case "clips:Files":
+            ClipGridView(title: "Files", clips: clips.filter { $0.type == .Files })
+        case "clips:Links":
+            ClipGridView(title: "Links", clips: clips.filter { $0.type == .Links })
+        case "history:recent":
+            HistoryView(clips: clips)
+        case "settings:general":
+            Text("General Settings")
+        case "about:credits":
+            CreditsView()
+        case "about:versions":
+            VersionHistoryView()
+        default:
+            ClipGridView(title: "All Clips", clips: clips)
+        }
+    }
+
+    private func sidebarRowBackground(for key: String) -> Color {
+        selectedSidebarItem == key ? activeTheme.color.opacity(0.16) : .clear
+    }
+
+    private func sidebarRowForeground(for key: String) -> Color {
+        selectedSidebarItem == key ? activeTheme.color : .primary
     }
 
     private func deleteAllClips() {
@@ -118,17 +257,36 @@ struct ClipGridView: View {
     let title: String
     let clips: [Item]
     @Environment(\.modelContext) private var modelContext
+    @AppStorage("selectedTheme") private var selectedThemeRaw = ThemeOption.orange.rawValue
     @State private var selectedClip: Item?
+    @State private var searchText: String = ""
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
+
+    private var activeTheme: ThemeOption {
+        ThemeOption(rawValue: selectedThemeRaw) ?? .orange
+    }
+
+    private var filteredClips: [Item] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return clips }
+
+        return clips.filter { clip in
+            clipMatchesSearch(clip, query: query)
+        }
+    }
 
     var body: some View {
         ZStack {
-            if clips.isEmpty {
-                ContentUnavailableView("No \(title)", systemImage: "clipboard", description: Text("Items you copy will appear here."))
+            if filteredClips.isEmpty {
+                if searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    ContentUnavailableView("No \(title)", systemImage: "clipboard", description: Text("Items you copy will appear here."))
+                } else {
+                    ContentUnavailableView("No Results", systemImage: "magnifyingglass", description: Text("Try a different search term."))
+                }
             } else {
                 ScrollView {
                     LazyVGrid(columns: columns, spacing: 12) {
-                        ForEach(clips) { clip in
+                        ForEach(filteredClips) { clip in
                             ClipCard(clip: clip).onTapGesture { selectedClip = clip }
                         }
                     }.padding()
@@ -148,6 +306,22 @@ struct ClipGridView: View {
             }
         }
         .navigationTitle(title)
+        .searchable(text: $searchText, prompt: "Search clips")
+    }
+
+    private func clipMatchesSearch(_ clip: Item, query: String) -> Bool {
+        let q = query.lowercased()
+        let note = clip.note?.lowercased() ?? ""
+        let text = clip.textCopied?.lowercased() ?? ""
+        let fileName = clip.files?.lastPathComponent.lowercased() ?? ""
+        let filePath = clip.files?.path.lowercased() ?? ""
+        let type = clip.type.rawValue.lowercased()
+
+        return note.contains(q)
+            || text.contains(q)
+            || fileName.contains(q)
+            || filePath.contains(q)
+            || type.contains(q)
     }
 }
 
@@ -157,13 +331,33 @@ struct ClipDetailSheet: View {
     let clip: Item
     var onDelete: () -> Void
     var onDismiss: () -> Void
+    @Environment(\.modelContext) private var modelContext
+    @AppStorage("selectedTheme") private var selectedThemeRaw = ThemeOption.orange.rawValue
     @State private var showCopiedAlert = false
+    @State private var noteText: String
+    private let noteLimit = 60
+
+    private var activeTheme: ThemeOption {
+        ThemeOption(rawValue: selectedThemeRaw) ?? .orange
+    }
+
+    init(clip: Item, onDelete: @escaping () -> Void, onDismiss: @escaping () -> Void) {
+        self.clip = clip
+        self.onDelete = onDelete
+        self.onDismiss = onDismiss
+        _noteText = State(initialValue: clip.note ?? "")
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             HStack {
                 Button(role: .destructive, action: onDelete) { Label("Delete", systemImage: "trash").foregroundColor(.red) }
                     .buttonStyle(.bordered)
+                Button(action: toggleStar) {
+                    Label(clip.isStarred ? "Starred" : "Star", systemImage: clip.isStarred ? "star.fill" : "star")
+                        .foregroundStyle(clip.isStarred ? activeTheme.color : .primary)
+                }
+                .buttonStyle(.bordered)
                 Spacer()
                 Button {
                     copyToPasteboard()
@@ -179,6 +373,14 @@ struct ClipDetailSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     Text(clip.copiedDate.formatted(date: .abbreviated, time: .shortened)).foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Tiny Note").font(.caption).foregroundStyle(.secondary)
+                        TextField("Add a short note", text: noteBinding)
+                            .textFieldStyle(.roundedBorder)
+                        Text("\(noteText.count)/\(noteLimit)")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
                     Divider()
                     switch clip.type {
                     case .Texts, .Links:
@@ -199,6 +401,60 @@ struct ClipDetailSheet: View {
         }
         .alert("Copied!", isPresented: $showCopiedAlert) { Button("OK", role: .cancel) {} }
         .onExitCommand(perform: onDismiss)
+    }
+
+    private var noteBinding: Binding<String> {
+        Binding(
+            get: { noteText },
+            set: { newValue in
+                let trimmed = String(newValue.prefix(noteLimit))
+                noteText = trimmed
+
+                let normalized = trimmed.trimmingCharacters(in: .whitespacesAndNewlines)
+                let savedNote = normalized.isEmpty ? nil : normalized
+                if clip.note != savedNote {
+                    clip.note = savedNote
+                    try? modelContext.save()
+                }
+            }
+        )
+    }
+
+    private func toggleStar() {
+        clip.isStarred.toggle()
+        try? modelContext.save()
+    }
+
+    private func keepOnlyThisClip() {
+        let descriptor = FetchDescriptor<Item>()
+        let allClips = (try? modelContext.fetch(descriptor)) ?? []
+
+        for other in allClips where other.id != clip.id {
+            if isDuplicate(other, of: clip) {
+                modelContext.delete(other)
+            }
+        }
+
+        clip.isStarred = true
+        try? modelContext.save()
+    }
+
+    private func isDuplicate(_ other: Item, of current: Item) -> Bool {
+        guard other.type == current.type else { return false }
+
+        switch current.type {
+        case .Texts, .Links:
+            return other.textCopied == current.textCopied
+        case .Images:
+            if let u1 = other.files?.standardizedFileURL, let u2 = current.files?.standardizedFileURL, u1 == u2 {
+                return true
+            }
+            return other.rawData == current.rawData
+        case .Files, .Documents, .Medias:
+            return other.files?.standardizedFileURL == current.files?.standardizedFileURL
+        case .Unknown:
+            return other.rawData == current.rawData
+        }
     }
 
     private func copyToPasteboard() {
@@ -236,13 +492,21 @@ struct ClipDetailSheet: View {
 
 struct ClipCard: View {
     let clip: Item
+    @AppStorage("selectedTheme") private var selectedThemeRaw = ThemeOption.orange.rawValue
+
+    private var activeTheme: ThemeOption {
+        ThemeOption(rawValue: selectedThemeRaw) ?? .orange
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Image(systemName: iconName(for: clip.type)).foregroundStyle(.secondary)
+                Image(systemName: iconName(for: clip)).foregroundStyle(.secondary)
+                if clip.isStarred {
+                    Image(systemName: "star.fill").foregroundStyle(activeTheme.color)
+                }
                 Spacer()
-                Text(clip.copiedDate, style: .time).font(.caption2).foregroundStyle(.tertiary)
+                Text(relativeTime(for: clip.copiedDate)).font(.caption2).foregroundStyle(.tertiary)
             }
 
             Group {
@@ -262,11 +526,24 @@ struct ClipCard: View {
                 }
             }
 
+            if let note = clip.note, !note.isEmpty {
+                Text(note)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
             Spacer(minLength: 0)
             HStack {
                 Text(clip.copiedDate, style: .date).font(.caption2).foregroundStyle(.tertiary)
                 Spacer()
-                Text(clip.type.rawValue).font(.caption2).padding(.horizontal, 6).padding(.vertical, 2).background(.quaternary).cornerRadius(4)
+                Text(clip.type.rawValue)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(.quaternary)
+                    .cornerRadius(4)
             }
         }
         .padding(12)
@@ -276,16 +553,12 @@ struct ClipCard: View {
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.06), lineWidth: 1))
     }
 
-    private func iconName(for type: ClipType) -> String {
-        switch type {
-        case .Texts: return "doc.text"
-        case .Images: return "photo"
-        case .Medias: return "play.rectangle"
-        case .Documents: return "doc"
-        case .Files: return "folder"
-        case .Links: return "link"
-        case .Unknown: return "questionmark.square"
-        }
+    private func iconName(for clip: Item) -> String {
+        clipIconName(for: clip)
+    }
+
+    private func relativeTime(for date: Date) -> String {
+        relativeClipTime(from: date)
     }
 }
 
@@ -304,12 +577,18 @@ func imageForClip(_ clip: Item) -> NSImage? {
 
 struct HistoryView: View {
     let clips: [Item]
+    @AppStorage("selectedTheme") private var selectedThemeRaw = ThemeOption.orange.rawValue
+
+    private var activeTheme: ThemeOption {
+        ThemeOption(rawValue: selectedThemeRaw) ?? .orange
+    }
+
     var body: some View {
         List(clips) { clip in
             HStack {
                 Text(clip.displayTitle).lineLimit(1)
                 Spacer()
-                Text(clip.copiedDate.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary)
+                Text(relativeClipTime(from: clip.copiedDate)).font(.caption).foregroundStyle(activeTheme.color.opacity(0.9))
             }
         }
         .navigationTitle("History")
@@ -320,15 +599,21 @@ struct HistoryView: View {
 
 struct WelcomeView: View {
     @Binding var isPresented: Bool
+    @AppStorage("selectedTheme") private var selectedThemeRaw = ThemeOption.orange.rawValue
+
+    private var activeTheme: ThemeOption {
+        ThemeOption(rawValue: selectedThemeRaw) ?? .orange
+    }
+
     var body: some View {
         ZStack {
             Color.black.opacity(0.6).ignoresSafeArea()
             VStack {
-                Text("Welcome to MultiClips").font(.title.bold()).foregroundStyle(.orange)
+                Text("Welcome to MultiClips").font(.title.bold()).foregroundStyle(activeTheme.color)
                 Button("Continue") { isPresented = false }
                     .padding(.horizontal, 24).padding(.vertical, 10)
-                    .background(Capsule().fill(.orange))
-                    .foregroundStyle(.black)
+                    .background(Capsule().fill(activeTheme.color))
+                    .foregroundStyle(.white)
             }
             .frame(width: 420, height: 300)
             .background(.ultraThinMaterial)
@@ -344,74 +629,99 @@ struct MenuBarView: View {
     @Query(sort: \Item.copiedDate, order: .reverse) var clips: [Item]
     
     @Environment(\.openWindow) private var openWindow
+    @AppStorage("selectedTheme") private var selectedThemeRaw = ThemeOption.orange.rawValue
+    @State private var selectedClipForActionsID: UUID?
+
+    private var activeTheme: ThemeOption {
+        ThemeOption(rawValue: selectedThemeRaw) ?? .orange
+    }
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Image(systemName: "clipboard.fill").foregroundStyle(.orange)
-                Text("MultiClips").font(.headline)
-                Spacer()
-                Text("\(clips.count) clips").font(.caption).foregroundStyle(.secondary)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-
-            Divider()
-
-            if clips.isEmpty {
-                VStack(spacing: 8) {
-                    Image(systemName: "clipboard").font(.largeTitle).foregroundStyle(.secondary)
-                    Text("No clips yet").foregroundStyle(.secondary)
-                    Text("Copy something to get started").font(.caption).foregroundStyle(.tertiary)
+        ZStack {
+            VStack(spacing: 0) {
+                HStack {
+                    Image(systemName: "clipboard.fill").foregroundStyle(.secondary)
+                    Text("MultiClips").font(.headline)
+                    Spacer()
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 30)
-            } else {
-                ScrollView {
-                    VStack(spacing: 2) {
-                        ForEach(clips.prefix(10)) { clip in
-                            MenuBarClipRow(clip: clip) { copyClipToPasteboard(clip) }
-                        }
-                    }
-                    .padding(.vertical, 4)
-                }
-                .frame(maxHeight: 320)
-            }
-
-            Divider()
-
-            VStack(spacing: 2) {
-                Button {
-                    openWindow(id: "main-window")
-                } label: {
-                    HStack { Image(systemName: "macwindow"); Text("Open MultiClips"); Spacer() }
-                        .padding(.horizontal, 12).padding(.vertical, 6).contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-
-                Button {
-                    clips.forEach { modelContext.delete($0) }
-                    try? modelContext.save()
-                } label: {
-                    HStack { Image(systemName: "trash"); Text("Clear History"); Spacer() }
-                        .foregroundStyle(.red)
-                        .padding(.horizontal, 12).padding(.vertical, 6).contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
+                .padding(.horizontal, 12)
+                .padding(.bottom, 10)
+                .padding(.top, 10)
 
                 Divider()
 
-                Button {
-                    NSApplication.shared.terminate(nil)
-                } label: {
-                    HStack { Image(systemName: "power"); Text("Quit MultiClips"); Spacer() }
-                        .padding(.horizontal, 12).padding(.vertical, 6).contentShape(Rectangle())
+                if clips.isEmpty {
+                    VStack(spacing: 8) {
+                        Image(systemName: "clipboard").font(.largeTitle).foregroundStyle(.secondary)
+                        Text("No clips yet").foregroundStyle(.secondary)
+                        Text("Copy something to get started").font(.caption).foregroundStyle(.tertiary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 100)
+                } else {
+                    ScrollView {
+                        VStack(spacing: 2) {
+                            ForEach(clips.prefix(30)) { clip in
+                                MenuBarClipRow(
+                                    clip: clip,
+                                    onCopy: { copyClipToPasteboard(clip) },
+                                    onOpenActions: { selectedClipForActionsID = clip.id },
+                                    onToggleStar: { toggleStar(clip) },
+                                    themeColor: activeTheme.color
+                                )
+                            }
+                        }
+                        .padding(.vertical, 10)
+                    }
+                    .frame(height: min(CGFloat(clips.count) * 52 + 20, 280))
                 }
-                .buttonStyle(.plain)
+
+                Divider()
+
+                VStack(spacing: 2) {
+                    Button {
+                        NotificationCenter.default.post(name: .openMainWindowRequest, object: nil)
+                        openWindow(id: "main-window")
+                        NSApplication.shared.activate(ignoringOtherApps: true)
+                    } label: {
+                        HStack { Image(systemName: "macwindow"); Text("Open MultiClips"); Spacer() }
+                            .padding(.horizontal, 12).padding(.vertical, 6).contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+
+                    Divider()
+
+                    Button {
+                        NSApplication.shared.terminate(nil)
+                    } label: {
+                        HStack { Image(systemName: "power"); Text("Quit MultiClips"); Spacer() }
+                            .padding(.horizontal, 12).padding(.vertical, 6).contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.vertical, 4)
             }
-            .padding(.vertical, 4)
+            .frame(width: 300)
+
+            if let id = selectedClipForActionsID,
+               let clip = clips.first(where: { $0.id == id }) {
+                Color.black.opacity(0.18)
+                    .ignoresSafeArea()
+                    .onTapGesture { selectedClipForActionsID = nil }
+
+                MenuBarClipActionsSheet(
+                    clip: clip,
+                    onToggleStar: { toggleStar(clip) },
+                    onSaveNote: { note in saveNote(note, for: clip) },
+                    themeColor: activeTheme.color,
+                    onClose: { selectedClipForActionsID = nil }
+                )
+                .background(.regularMaterial)
+                .cornerRadius(10)
+                .shadow(color: .black.opacity(0.18), radius: 8, x: 0, y: 4)
+            }
         }
-        .frame(width: 300)
+        .tint(activeTheme.color)
     }
 
     private func copyClipToPasteboard(_ clip: Item) {
@@ -437,6 +747,17 @@ struct MenuBarView: View {
         clip.copiedDate = Date()
         try? modelContext.save()
     }
+
+    private func toggleStar(_ clip: Item) {
+        clip.isStarred.toggle()
+        try? modelContext.save()
+    }
+
+    private func saveNote(_ note: String, for clip: Item) {
+        let normalized = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        clip.note = normalized.isEmpty ? nil : String(normalized.prefix(60))
+        try? modelContext.save()
+    }
 }
 
 // MARK: - Menu Bar Clip Row
@@ -444,46 +765,420 @@ struct MenuBarView: View {
 struct MenuBarClipRow: View {
     let clip: Item
     let onCopy: () -> Void
+    let onOpenActions: () -> Void
+    let onToggleStar: () -> Void
+    let themeColor: Color
     @State private var isHovered = false
 
     var body: some View {
         Button(action: onCopy) {
             HStack(spacing: 10) {
-                Image(systemName: iconName(for: clip.type))
-                    .font(.system(size: 14)).foregroundStyle(.orange).frame(width: 20)
+                Image(systemName: iconName(for: clip))
+                    .font(.system(size: 14)).foregroundStyle(.secondary).frame(width: 20)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(clipPreview).font(.callout).lineLimit(1).truncationMode(.tail)
-                    Text(clip.copiedDate.formatted(date: .omitted, time: .shortened)).font(.caption2).foregroundStyle(.tertiary)
+                    if let note = clip.note, !note.isEmpty {
+                        Text(note).font(.caption2).lineLimit(1).foregroundStyle(.secondary)
+                    } else {
+                        Text(relativeClipTime(from: clip.copiedDate)).font(.caption2).foregroundStyle(.tertiary)
+                    }
                 }
                 Spacer()
-                if isHovered { Image(systemName: "doc.on.doc").font(.caption).foregroundStyle(.secondary) }
+                HStack(spacing: 4) {
+                    Button(action: onToggleStar) {
+                        Image(systemName: clip.isStarred ? "star.fill" : "star")
+                            .font(.system(size: 13))
+                            .foregroundStyle(clip.isStarred ? themeColor : themeColor.opacity(0.28))
+                    }
+                    .buttonStyle(.plain)
+
+                    Button(action: onOpenActions) {
+                        Image(systemName: "ellipsis.circle")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
             .padding(.horizontal, 12).padding(.vertical, 6)
-            .background(isHovered ? Color.primary.opacity(0.08) : Color.clear)
+            .background(isHovered ? themeColor.opacity(0.16) : Color.clear)
             .cornerRadius(6).contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
+        .contextMenu {
+            Button("Copy") {
+                onCopy()
+            }
+
+            Button("Open Actions") {
+                onOpenActions()
+            }
+        }
+        .simultaneousGesture(
+            TapGesture().modifiers(.control).onEnded {
+                onOpenActions()
+            }
+        )
     }
 
     private var clipPreview: String {
         switch clip.type {
         case .Texts, .Links: return clip.textCopied ?? "Empty"
-        case .Images: return clip.files != nil ? "🖼 \(clip.files!.lastPathComponent)" : "🖼 Screenshot"
+        case .Images: return clip.files != nil ? "🖼 \(clip.files!.lastPathComponent)" : "Screenshot"
         case .Files, .Documents, .Medias: return clip.files?.lastPathComponent ?? clip.type.rawValue
         case .Unknown: return "Unknown Clip"
         }
     }
 
-    private func iconName(for type: ClipType) -> String {
-        switch type {
-        case .Texts: return "doc.text"
-        case .Images: return "photo"
-        case .Medias: return "play.rectangle"
-        case .Documents: return "doc"
-        case .Files: return "folder"
-        case .Links: return "link"
-        case .Unknown: return "questionmark.square"
-        }
+    private func iconName(for clip: Item) -> String {
+        clipIconName(for: clip)
     }
+}
+
+struct MenuBarClipActionsSheet: View {
+    let clip: Item
+    let onToggleStar: () -> Void
+    let onSaveNote: (String) -> Void
+    let themeColor: Color
+    let onClose: () -> Void
+    @State private var noteText: String
+
+    init(clip: Item, onToggleStar: @escaping () -> Void, onSaveNote: @escaping (String) -> Void, themeColor: Color, onClose: @escaping () -> Void) {
+        self.clip = clip
+        self.onToggleStar = onToggleStar
+        self.onSaveNote = onSaveNote
+        self.themeColor = themeColor
+        self.onClose = onClose
+        _noteText = State(initialValue: clip.note ?? "")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+
+            HStack {
+                Text("Clip Actions")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.primary)
+                Spacer()
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(6)
+                        .background(Color.primary.opacity(0.08))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 12)
+            .padding(.bottom, 10)
+
+            Divider()
+
+            Button(action: onToggleStar) {
+                HStack(spacing: 10) {
+                    Image(systemName: clip.isStarred ? "star.fill" : "star")
+                        .foregroundStyle(clip.isStarred ? themeColor : .secondary)
+                        .font(.system(size: 14))
+                    Text(clip.isStarred ? "Unstar" : "Star")
+                        .font(.callout)
+                        .foregroundStyle(.primary)
+                    Spacer()
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 9)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Note")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 14)
+                    .padding(.top, 10)
+
+                TextField("Add a short note…", text: $noteText)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.callout)
+                    .padding(.horizontal, 14)
+                    .onSubmit {
+                        onSaveNote(noteText)
+                        onClose()
+                    }
+
+                HStack(spacing: 8) {
+                    Spacer()
+                    Button("Cancel") { onClose() }
+                        .font(.callout)
+                        .buttonStyle(.bordered)
+                    Button("Save") {
+                        onSaveNote(noteText)
+                        onClose()
+                    }
+                    .font(.callout)
+                    .buttonStyle(.borderedProminent)
+                }
+                .padding(.horizontal, 14)
+                .padding(.bottom, 12)
+                .padding(.top, 4)
+            }
+        }
+        .frame(width: 260)
+        .fixedSize()
+    }
+}
+
+// MARK: - Credits View
+
+struct CreditsView: View {
+    @AppStorage("selectedTheme") private var selectedThemeRaw = ThemeOption.orange.rawValue
+
+    private var activeTheme: ThemeOption {
+        ThemeOption(rawValue: selectedThemeRaw) ?? .orange
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(spacing: 12) {
+                    ZStack {
+                        Circle()
+                            .fill(activeTheme.color.opacity(0.18))
+                            .frame(width: 44, height: 44)
+                        Image(systemName: "person.crop.circle.fill")
+                            .font(.title3)
+                            .foregroundStyle(activeTheme.color)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Developer")
+                            .font(.title2.bold())
+                            .foregroundStyle(activeTheme.color)
+                        Text("Developed by Nitish")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+
+                VStack(spacing: 10) {
+                    socialLinkRow(
+                        title: "GitHub Profile",
+                        subtitle: "Open projects and source code",
+                        systemImage: "chevron.left.forwardslash.chevron.right",
+                        destination: "https://github.com/nitish1705"
+                    )
+
+                    socialLinkRow(
+                        title: "LinkedIn Profile",
+                        subtitle: "Connect professionally",
+                        systemImage: "person.2.fill",
+                        destination: "https://www.linkedin.com"
+                    )
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Quick Links")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(activeTheme.color)
+
+                    HStack(spacing: 8) {
+                        Link("GitHub", destination: URL(string: "https://github.com/nitish1705")!)
+                            .font(.caption.weight(.medium))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Capsule().fill(activeTheme.color.opacity(0.14)))
+
+                        Link("LinkedIn", destination: URL(string: "https://www.linkedin.com/in/nitish--m")!)
+                            .font(.caption.weight(.medium))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Capsule().fill(activeTheme.color.opacity(0.14)))
+                    }
+                }
+            }
+            .padding(24)
+        }
+        .background(
+            LinearGradient(
+                colors: [activeTheme.color.opacity(0.08), .clear],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .navigationTitle("Credits")
+        .tint(activeTheme.color)
+    }
+
+    @ViewBuilder
+    private func socialLinkRow(title: String, subtitle: String, systemImage: String, destination: String) -> some View {
+        Link(destination: URL(string: destination)!) {
+            HStack(spacing: 10) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(activeTheme.color)
+                    .frame(width: 28, height: 28)
+                    .background(Circle().fill(activeTheme.color.opacity(0.14)))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.callout.weight(.semibold))
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "arrow.up.right")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(activeTheme.color)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(activeTheme.color.opacity(0.10))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(activeTheme.color.opacity(0.18), lineWidth: 1)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Version History View
+
+struct VersionHistoryView: View {
+    @AppStorage("selectedTheme") private var selectedThemeRaw = ThemeOption.orange.rawValue
+
+    private var activeTheme: ThemeOption {
+        ThemeOption(rawValue: selectedThemeRaw) ?? .orange
+    }
+
+    private let releases: [AppRelease] = [
+        AppRelease(
+            version: "v1.2.1",
+            date: "26 Mar 2026",
+            highlights: [
+                "Per-clip actions from menu icon bar rows",
+                "Three-dots action dialog with Star and Add Text (Note)",
+                "Main app navbar quick note input removed",
+                "Clip row click now opens actions dialog in icon bar"
+            ]
+        ),
+        AppRelease(
+            version: "v1.2.0",
+            date: "26 Mar 2026",
+            highlights: [
+                "Clip search with live filtering across clip content",
+                "Tiny note support per clip",
+                "Quick add text option in the top bar",
+                "App now opens with All Clips by default"
+            ]
+        ),
+        AppRelease(
+            version: "v1.1.0",
+            date: "19 Mar 2026",
+            highlights: [
+                "Theme customization with multiple color options",
+                "Credits page and release tracking screen",
+                "Improved contextual icons and relative-time labels",
+                "Menu bar open-window behavior improvements"
+            ]
+        ),
+        AppRelease(
+            version: "v1.0.0",
+            date: "Initial Release",
+            highlights: [
+                "Clipboard history for text, files, and images",
+                "Menu bar quick-copy access",
+                "Local persistence with SwiftData"
+            ]
+        )
+    ]
+
+    var body: some View {
+        List(releases) { release in
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(release.version).font(.headline).foregroundStyle(activeTheme.color)
+                    Spacer()
+                    Text(release.date).font(.caption).foregroundStyle(.secondary)
+                }
+
+                ForEach(release.highlights, id: \.self) { point in
+                    Label(point, systemImage: "checkmark.circle")
+                        .font(.callout)
+                        .foregroundStyle(activeTheme.color.opacity(0.9))
+                }
+            }
+            .padding(.vertical, 4)
+        }
+        .navigationTitle("Version History")
+        .tint(activeTheme.color)
+    }
+}
+
+// MARK: - Shared Helpers
+
+func relativeClipTime(from date: Date, now: Date = Date()) -> String {
+    let seconds = Int(now.timeIntervalSince(date))
+    if seconds < 0 { return "just now" }
+    if seconds < 60 { return "\(seconds) sec ago" }
+
+    let minutes = seconds / 60
+    if minutes <= 30 {
+        return "\(minutes) min ago"
+    }
+
+    return date.formatted(date: .omitted, time: .shortened)
+}
+
+func clipIconName(for clip: Item) -> String {
+    switch clip.type {
+    case .Texts:
+        return "textformat"
+    case .Images:
+        return "photo"
+    case .Links:
+        return "link"
+    case .Documents:
+        return "doc.text"
+    case .Medias:
+        return "play.rectangle"
+    case .Files:
+        if let url = clip.files {
+            return iconForFileURL(url)
+        }
+        return "doc"
+    case .Unknown:
+        return "questionmark.square"
+    }
+}
+
+func iconForFileURL(_ url: URL) -> String {
+    guard let type = UTType(filenameExtension: url.pathExtension) else {
+        return "doc"
+    }
+
+    if type.conforms(to: .pdf) { return "doc.richtext" }
+    if type.conforms(to: .spreadsheet) { return "tablecells" }
+    if type.conforms(to: .presentation) { return "display" }
+    if type.conforms(to: .archive) { return "archivebox" }
+    if type.conforms(to: .audio) { return "music.note" }
+    if type.conforms(to: .movie) { return "film" }
+    if type.conforms(to: .image) { return "photo" }
+    if type.conforms(to: .text) { return "doc.text" }
+
+    return "doc"
 }

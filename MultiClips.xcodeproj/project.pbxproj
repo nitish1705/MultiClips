@@ -10,22 +10,9 @@
 		68DBEF922F4B3B1200CE0253 /* MultiClips.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MultiClips.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		68B897782F534BCF001146EF /* Exceptions for "MultiClips" folder in "MultiClips" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = 68DBEF912F4B3B1200CE0253 /* MultiClips */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		68DBEF942F4B3B1200CE0253 /* MultiClips */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				68B897782F534BCF001146EF /* Exceptions for "MultiClips" folder in "MultiClips" target */,
-			);
 			path = MultiClips;
 			sourceTree = "<group>";
 		};
@@ -281,7 +268,8 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				MARKETING_VERSION = 2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = nitishm.MultiClips;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -316,7 +304,8 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				MARKETING_VERSION = 2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = nitishm.MultiClips;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;

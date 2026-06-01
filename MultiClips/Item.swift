@@ -17,6 +17,8 @@ final class Item {
     var copiedDate: Date
     var type: ClipType
     var textCopied: String?
+    var note: String?
+    var isStarred: Bool = false
     var files: URL?
     @Attribute(.externalStorage) var rawData: Data?
 
@@ -38,12 +40,16 @@ final class Item {
          copiedDate: Date = Date(),
          type: ClipType,
          textCopied: String? = nil,
+         note: String? = nil,
+         isStarred: Bool = false,
          files: URL? = nil,
          rawData: Data? = nil) {
         self.id = id
         self.copiedDate = copiedDate
         self.type = type
         self.textCopied = textCopied
+        self.note = note
+        self.isStarred = isStarred
         self.files = files
         self.rawData = rawData
     }
