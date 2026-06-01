@@ -689,6 +689,16 @@ struct MenuBarView: View {
                     }
                     .buttonStyle(.plain)
 
+                    Button {
+                        clips.forEach { modelContext.delete($0) }
+                        try? modelContext.save()
+                    } label: {
+                        HStack { Image(systemName: "trash"); Text("Clear History"); Spacer() }
+                            .foregroundStyle(.red)
+                            .padding(.horizontal, 12).padding(.vertical, 6).contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+
                     Divider()
 
                     Button {
