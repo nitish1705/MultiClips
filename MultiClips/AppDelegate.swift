@@ -8,6 +8,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var lastChangeCount: Int = NSPasteboard.general.changeCount
     private var skipNextPasteboardChange = false
     private var timer: Timer?
+    private var eventMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -28,9 +29,32 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil
         )
 
+        // Register global keyboard hotkey (Cmd+Shift+V)
+        setupKeyboardHotkey()
+
         // Start the pasteboard monitoring timer
         timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             self?.checkPasteboard()
+        }
+    }
+
+    private func setupKeyboardHotkey() {
+        eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            if event.modifierFlags.contains([.command, .shift]) && event.characters == "v" {
+                self?.toggleMainWindow()
+            }
+        }
+    }
+
+    @objc private func toggleMainWindow() {
+        if let window = NSApplication.shared.windows.first(where: { $0.className.contains("SwiftUI") }) {
+            if window.isVisible {
+                window.orderOut(nil)
+            } else {
+                showMainWindow()
+            }
+        } else {
+            showMainWindow()
         }
     }
 
