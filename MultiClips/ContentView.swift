@@ -262,6 +262,7 @@ struct ClipGridView: View {
     @AppStorage("selectedTheme") private var selectedThemeRaw = ThemeOption.orange.rawValue
     @State private var selectedClip: Item?
     @State private var searchText: String = ""
+    @State private var imageCache: [UUID: NSImage?] = [:]
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
 
     private var activeTheme: ThemeOption {
@@ -288,8 +289,8 @@ struct ClipGridView: View {
                 } else {
                     ScrollView {
                         LazyVGrid(columns: columns, spacing: 12) {
-                            ForEach(filteredClips) { clip in
-                                ClipCard(clip: clip).onTapGesture { selectedClip = clip }
+                            ForEach(filteredClips, id: \.id) { clip in
+                                ClipCard(clip: clip, cachedImage: getCachedImage(for: clip)).onTapGesture { selectedClip = clip }
                             }
                         }.padding()
                     }
@@ -334,6 +335,15 @@ struct ClipGridView: View {
             || fileName.contains(q)
             || filePath.contains(q)
             || type.contains(q)
+    }
+
+    private func getCachedImage(for clip: Item) -> NSImage? {
+        if let cached = imageCache[clip.id] {
+            return cached
+        }
+        let image = imageForClip(clip)
+        imageCache[clip.id] = image
+        return image
     }
 }
 
@@ -504,6 +514,7 @@ struct ClipDetailSheet: View {
 
 struct ClipCard: View {
     let clip: Item
+    let cachedImage: NSImage?
     @AppStorage("selectedTheme") private var selectedThemeRaw = ThemeOption.orange.rawValue
 
     private var activeTheme: ThemeOption {
@@ -526,7 +537,7 @@ struct ClipCard: View {
                 case .Texts, .Links:
                     Text(clip.textCopied ?? "Empty").lineLimit(4).font(.callout)
                 case .Images:
-                    if let img = imageForClip(clip) {
+                    if let img = cachedImage {
                         Image(nsImage: img).resizable().scaledToFill().frame(height: 60).clipped().cornerRadius(6)
                     } else {
                         Text("Image unavailable").foregroundStyle(.secondary)
@@ -585,10 +596,10 @@ struct ClipCard: View {
 
 func imageForClip(_ clip: Item) -> NSImage? {
     if let data = clip.rawData, let img = NSImage(data: data) { return img }
+    if let url = clip.files, let img = NSImage(contentsOf: url) { return img }
     if let data = clip.rawData, let rep = NSBitmapImageRep(data: data) {
         let img = NSImage(size: rep.size); img.addRepresentation(rep); return img
     }
-    if let url = clip.files, let img = NSImage(contentsOf: url) { return img }
     return nil
 }
 
