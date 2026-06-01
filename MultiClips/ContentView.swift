@@ -235,6 +235,7 @@ struct ContentView: View {
         default:
             ClipGridView(title: "All Clips", clips: clips)
         }
+        
     }
 
     private func sidebarRowBackground(for key: String) -> Color {
@@ -249,6 +250,7 @@ struct ContentView: View {
         clips.forEach { modelContext.delete($0) }
         try? modelContext.save()
     }
+    
 }
 
 // MARK: - Grid View
@@ -276,38 +278,48 @@ struct ClipGridView: View {
     }
 
     var body: some View {
-        ZStack {
-            if filteredClips.isEmpty {
-                if searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    ContentUnavailableView("No \(title)", systemImage: "clipboard", description: Text("Items you copy will appear here."))
+            ZStack {
+                if filteredClips.isEmpty {
+                    if searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        ContentUnavailableView("No \(title)", systemImage: "clipboard", description: Text("Items you copy will appear here."))
+                    } else {
+                        ContentUnavailableView("No Results", systemImage: "magnifyingglass", description: Text("Try a different search term."))
+                    }
                 } else {
-                    ContentUnavailableView("No Results", systemImage: "magnifyingglass", description: Text("Try a different search term."))
+                    ScrollView {
+                        LazyVGrid(columns: columns, spacing: 12) {
+                            ForEach(filteredClips) { clip in
+                                ClipCard(clip: clip).onTapGesture { selectedClip = clip }
+                            }
+                        }.padding()
+                    }
+                    // Removed the background from here!
                 }
-            } else {
-                ScrollView {
-                    LazyVGrid(columns: columns, spacing: 12) {
-                        ForEach(filteredClips) { clip in
-                            ClipCard(clip: clip).onTapGesture { selectedClip = clip }
-                        }
-                    }.padding()
-                }
-            }
 
-            if let clip = selectedClip {
-                Color.black.opacity(0.3).ignoresSafeArea().onTapGesture { selectedClip = nil }
-                ClipDetailSheet(clip: clip, onDelete: {
-                    modelContext.delete(clip)
-                    try? modelContext.save()
-                    selectedClip = nil
-                }, onDismiss: { selectedClip = nil })
-                .frame(width: 500, height: 420)
-                .background(.ultraThickMaterial)
-                .cornerRadius(16)
+                if let clip = selectedClip {
+                    Color.black.opacity(0.3).ignoresSafeArea().onTapGesture { selectedClip = nil }
+                    ClipDetailSheet(clip: clip, onDelete: {
+                        modelContext.delete(clip)
+                        try? modelContext.save()
+                        selectedClip = nil
+                    }, onDismiss: { selectedClip = nil })
+                    .frame(width: 500, height: 420)
+                    .background(.ultraThickMaterial)
+                    .cornerRadius(16)
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // ✅ Applied the background to the ZStack so it covers the whole window in ALL states
+            .background(
+                LinearGradient(
+                    colors: [activeTheme.color.opacity(0.08), .clear],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .navigationTitle(title)
+            .searchable(text: $searchText, prompt: "Search clips")
         }
-        .navigationTitle(title)
-        .searchable(text: $searchText, prompt: "Search clips")
-    }
 
     private func clipMatchesSearch(_ clip: Item, query: String) -> Bool {
         let q = query.lowercased()
@@ -551,6 +563,13 @@ struct ClipCard: View {
         .background(.background)
         .cornerRadius(12)
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.06), lineWidth: 1))
+        .background(
+                    LinearGradient(
+                        colors: [activeTheme.color.opacity(0.08), .clear],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
     }
 
     private func iconName(for clip: Item) -> String {
@@ -590,7 +609,16 @@ struct HistoryView: View {
                 Spacer()
                 Text(relativeClipTime(from: clip.copiedDate)).font(.caption).foregroundStyle(activeTheme.color.opacity(0.9))
             }
+            .listRowBackground(Color.clear);
         }
+        .scrollContentBackground(.hidden)
+        .background(
+            LinearGradient(
+                colors: [activeTheme.color.opacity(0.08), .clear],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
         .navigationTitle("History")
     }
 }
@@ -647,6 +675,13 @@ struct MenuBarView: View {
                 .padding(.horizontal, 12)
                 .padding(.bottom, 10)
                 .padding(.top, 10)
+                .background(
+                    LinearGradient(
+                        colors: [activeTheme.color.opacity(0.1), .clear],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
 
                 Divider()
 
@@ -710,6 +745,13 @@ struct MenuBarView: View {
                     .buttonStyle(.plain)
                 }
                 .padding(.vertical, 4)
+                .background(
+                            LinearGradient(
+                                colors: [activeTheme.color.opacity(0.1), .clear],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
             }
             .frame(width: 300)
 
@@ -1133,7 +1175,17 @@ struct VersionHistoryView: View {
                 }
             }
             .padding(.vertical, 4)
+            .listRowBackground(Color.clear)
         }
+        .scrollContentBackground(.hidden)
+        // 3. Apply your gradient to the entire list window
+        .background(
+            LinearGradient(
+                colors: [activeTheme.color.opacity(0.08), .clear],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
         .navigationTitle("Version History")
         .tint(activeTheme.color)
     }
