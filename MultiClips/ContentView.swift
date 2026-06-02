@@ -262,6 +262,11 @@ struct ClipGridView: View {
     @AppStorage("selectedTheme") private var selectedThemeRaw = ThemeOption.orange.rawValue
     @State private var selectedClip: Item?
     @State private var searchText: String = ""
+    @State private var imageCache: [UUID: NSImage?] = [:]
+    @State private var showDuplicates = false
+    @State private var duplicateGroups: [[Item]] = []
+    @State private var selectedDateRange: (Date, Date)? = nil
+    @State private var selectedTypes: Set<ClipType> = Set(ClipType.allCases)
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
 
     private var activeTheme: ThemeOption {
@@ -269,11 +274,30 @@ struct ClipGridView: View {
     }
 
     private var filteredClips: [Item] {
-        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty else { return clips }
+        var result = clips
 
-        return clips.filter { clip in
-            clipMatchesSearch(clip, query: query)
+        // Filter by date range
+        if let (startDate, endDate) = selectedDateRange {
+            result = result.filter { $0.copiedDate >= startDate && $0.copiedDate <= endDate }
+        }
+
+        // Filter by type
+        result = result.filter { selectedTypes.contains($0.type) }
+
+        // Search filter
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !query.isEmpty {
+            result = result.filter { clip in
+                clipMatchesSearch(clip, query: query)
+            }
+        }
+
+        // Sort: pinned first, then by date
+        return result.sorted { a, b in
+            if a.isPinned != b.isPinned {
+                return a.isPinned
+            }
+            return a.copiedDate > b.copiedDate
         }
     }
 
@@ -288,8 +312,8 @@ struct ClipGridView: View {
                 } else {
                     ScrollView {
                         LazyVGrid(columns: columns, spacing: 12) {
-                            ForEach(filteredClips) { clip in
-                                ClipCard(clip: clip).onTapGesture { selectedClip = clip }
+                            ForEach(filteredClips, id: \.id) { clip in
+                                ClipCard(clip: clip, cachedImage: getCachedImage(for: clip)).onTapGesture { selectedClip = clip }
                             }
                         }.padding()
                     }
@@ -307,6 +331,14 @@ struct ClipGridView: View {
                     .background(.ultraThickMaterial)
                     .cornerRadius(16)
                 }
+
+                if showDuplicates && !duplicateGroups.isEmpty {
+                    Color.black.opacity(0.3).ignoresSafeArea().onTapGesture { showDuplicates = false }
+                    DuplicatesDetectionSheet(groups: duplicateGroups, onDismiss: { showDuplicates = false }, modelContext: modelContext)
+                        .frame(width: 550, height: 500)
+                        .background(.ultraThickMaterial)
+                        .cornerRadius(16)
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             // ✅ Applied the background to the ZStack so it covers the whole window in ALL states
@@ -319,6 +351,31 @@ struct ClipGridView: View {
             )
             .navigationTitle(title)
             .searchable(text: $searchText, prompt: "Search clips")
+            .toolbar {
+                ToolbarItemGroup(placement: .secondaryAction) {
+                    Menu {
+                        Section("Type Filter") {
+                            ForEach(ClipType.allCases, id: \.self) { type in
+                                Toggle(isOn: Binding(
+                                    get: { selectedTypes.contains(type) },
+                                    set: { if $0 { selectedTypes.insert(type) } else { selectedTypes.remove(type) } }
+                                )) {
+                                    Label(type.rawValue, systemImage: iconForType(type))
+                                }
+                            }
+                        }
+                        Divider()
+                        Button(action: detectDuplicates) {
+                            Label("Find Duplicates", systemImage: "doc.on.doc")
+                        }
+                    } label: {
+                        Label("Filters", systemImage: "slider.horizontal.3")
+                    }
+                }
+            }
+        }
+        .onAppear {
+            selectedTypes = Set(ClipType.allCases)
         }
 
     private func clipMatchesSearch(_ clip: Item, query: String) -> Bool {
@@ -334,6 +391,63 @@ struct ClipGridView: View {
             || fileName.contains(q)
             || filePath.contains(q)
             || type.contains(q)
+    }
+
+    private func getCachedImage(for clip: Item) -> NSImage? {
+        if let cached = imageCache[clip.id] {
+            return cached
+        }
+        let image = imageForClip(clip)
+        imageCache[clip.id] = image
+        return image
+    }
+
+    private func detectDuplicates() {
+        var groups: [[Item]] = []
+        var processed = Set<UUID>()
+
+        for clip in clips {
+            guard !processed.contains(clip.id) else { continue }
+            var duplicates = [clip]
+            processed.insert(clip.id)
+
+            for other in clips {
+                guard !processed.contains(other.id) else { continue }
+                if areDuplicates(clip, other) {
+                    duplicates.append(other)
+                    processed.insert(other.id)
+                }
+            }
+
+            if duplicates.count > 1 {
+                groups.append(duplicates)
+            }
+        }
+
+        duplicateGroups = groups
+        showDuplicates = !groups.isEmpty
+    }
+
+    private func areDuplicates(_ a: Item, _ b: Item) -> Bool {
+        guard a.type == b.type else { return false }
+
+        switch a.type {
+        case .Texts, .Links:
+            return a.textCopied?.lowercased() == b.textCopied?.lowercased()
+        case .Images:
+            if let u1 = a.files?.standardizedFileURL, let u2 = b.files?.standardizedFileURL {
+                return u1 == u2
+            }
+            return a.rawData == b.rawData
+        case .Files, .Documents, .Medias:
+            return a.files?.standardizedFileURL == b.files?.standardizedFileURL
+        case .Unknown:
+            return a.rawData == b.rawData
+        }
+    }
+
+    private func iconForType(_ type: ClipType) -> String {
+        clipIconName(for: Item(type: type))
     }
 }
 
@@ -365,6 +479,11 @@ struct ClipDetailSheet: View {
             HStack {
                 Button(role: .destructive, action: onDelete) { Label("Delete", systemImage: "trash").foregroundColor(.red) }
                     .buttonStyle(.bordered)
+                Button(action: togglePin) {
+                    Label(clip.isPinned ? "Pinned" : "Pin", systemImage: clip.isPinned ? "pin.fill" : "pin")
+                        .foregroundStyle(clip.isPinned ? activeTheme.color : .primary)
+                }
+                .buttonStyle(.bordered)
                 Button(action: toggleStar) {
                     Label(clip.isStarred ? "Starred" : "Star", systemImage: clip.isStarred ? "star.fill" : "star")
                         .foregroundStyle(clip.isStarred ? activeTheme.color : .primary)
@@ -430,6 +549,11 @@ struct ClipDetailSheet: View {
                 }
             }
         )
+    }
+
+    private func togglePin() {
+        clip.isPinned.toggle()
+        try? modelContext.save()
     }
 
     private func toggleStar() {
@@ -500,11 +624,74 @@ struct ClipDetailSheet: View {
     }
 }
 
+// MARK: - Duplicates Detection Sheet
+
+struct DuplicatesDetectionSheet: View {
+    let groups: [[Item]]
+    var onDismiss: () -> Void
+    let modelContext: ModelContext
+    @AppStorage("selectedTheme") private var selectedThemeRaw = ThemeOption.orange.rawValue
+
+    private var activeTheme: ThemeOption {
+        ThemeOption(rawValue: selectedThemeRaw) ?? .orange
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("Found \(groups.count) Duplicate Group\(groups.count == 1 ? "" : "s")")
+                    .font(.headline)
+                Spacer()
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark.circle.fill").font(.title2).foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding()
+            Divider()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(Array(groups.enumerated()), id: \.offset) { index, group in
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Group \(index + 1) - \(group.count) duplicates")
+                                .font(.subheadline.bold())
+                                .foregroundStyle(activeTheme.color)
+
+                            ForEach(group) { clip in
+                                HStack {
+                                    Image(systemName: "doc.on.doc").foregroundStyle(.secondary)
+                                    Text(clip.displayTitle).lineLimit(1)
+                                    Spacer()
+                                    Button(role: .destructive) {
+                                        modelContext.delete(clip)
+                                        try? modelContext.save()
+                                    } label: {
+                                        Image(systemName: "trash").font(.caption)
+                                    }
+                                    .buttonStyle(.bordered)
+                                }
+                                .padding(8)
+                                .background(.background)
+                                .cornerRadius(6)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+                .padding()
+            }
+        }
+    }
+}
+
 // MARK: - Clip Card
 
 struct ClipCard: View {
     let clip: Item
+    let cachedImage: NSImage?
     @AppStorage("selectedTheme") private var selectedThemeRaw = ThemeOption.orange.rawValue
+    @Environment(\.modelContext) private var modelContext
 
     private var activeTheme: ThemeOption {
         ThemeOption(rawValue: selectedThemeRaw) ?? .orange
@@ -514,6 +701,9 @@ struct ClipCard: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Image(systemName: iconName(for: clip)).foregroundStyle(.secondary)
+                if clip.isPinned {
+                    Image(systemName: "pin.fill").foregroundStyle(activeTheme.color)
+                }
                 if clip.isStarred {
                     Image(systemName: "star.fill").foregroundStyle(activeTheme.color)
                 }
@@ -526,7 +716,7 @@ struct ClipCard: View {
                 case .Texts, .Links:
                     Text(clip.textCopied ?? "Empty").lineLimit(4).font(.callout)
                 case .Images:
-                    if let img = imageForClip(clip) {
+                    if let img = cachedImage {
                         Image(nsImage: img).resizable().scaledToFill().frame(height: 60).clipped().cornerRadius(6)
                     } else {
                         Text("Image unavailable").foregroundStyle(.secondary)
@@ -585,10 +775,10 @@ struct ClipCard: View {
 
 func imageForClip(_ clip: Item) -> NSImage? {
     if let data = clip.rawData, let img = NSImage(data: data) { return img }
+    if let url = clip.files, let img = NSImage(contentsOf: url) { return img }
     if let data = clip.rawData, let rep = NSBitmapImageRep(data: data) {
         let img = NSImage(size: rep.size); img.addRepresentation(rep); return img
     }
-    if let url = clip.files, let img = NSImage(contentsOf: url) { return img }
     return nil
 }
 

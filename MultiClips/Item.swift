@@ -19,6 +19,7 @@ final class Item {
     var textCopied: String?
     var note: String?
     var isStarred: Bool = false
+    var isPinned: Bool = false
     var files: URL?
     @Attribute(.externalStorage) var rawData: Data?
 
@@ -42,6 +43,7 @@ final class Item {
          textCopied: String? = nil,
          note: String? = nil,
          isStarred: Bool = false,
+         isPinned: Bool = false,
          files: URL? = nil,
          rawData: Data? = nil) {
         self.id = id
@@ -50,6 +52,7 @@ final class Item {
         self.textCopied = textCopied
         self.note = note
         self.isStarred = isStarred
+        self.isPinned = isPinned
         self.files = files
         self.rawData = rawData
     }
