@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-enum ClipType: String, Codable {
+enum ClipType: String, Codable, CaseIterable {
     case Texts
     case Images
     case Medias

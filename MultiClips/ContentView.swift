@@ -47,7 +47,7 @@ struct AppRelease: Identifiable {
 }
 
 // MARK: - Main Content View
-
+    
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Item.copiedDate, order: .reverse) var clips: [Item]
@@ -262,7 +262,6 @@ struct ClipGridView: View {
     @AppStorage("selectedTheme") private var selectedThemeRaw = ThemeOption.orange.rawValue
     @State private var selectedClip: Item?
     @State private var searchText: String = ""
-    @State private var imageCache: [UUID: NSImage?] = [:]
     @State private var showDuplicates = false
     @State private var duplicateGroups: [[Item]] = []
     @State private var selectedDateRange: (Date, Date)? = nil
@@ -302,82 +301,80 @@ struct ClipGridView: View {
     }
 
     var body: some View {
-            ZStack {
-                if filteredClips.isEmpty {
-                    if searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        ContentUnavailableView("No \(title)", systemImage: "clipboard", description: Text("Items you copy will appear here."))
-                    } else {
-                        ContentUnavailableView("No Results", systemImage: "magnifyingglass", description: Text("Try a different search term."))
-                    }
+        ZStack {
+            if filteredClips.isEmpty {
+                if searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    ContentUnavailableView("No \(title)", systemImage: "clipboard", description: Text("Items you copy will appear here."))
                 } else {
-                    ScrollView {
-                        LazyVGrid(columns: columns, spacing: 12) {
-                            ForEach(filteredClips, id: \.id) { clip in
-                                ClipCard(clip: clip, cachedImage: getCachedImage(for: clip)).onTapGesture { selectedClip = clip }
-                            }
-                        }.padding()
-                    }
-                    // Removed the background from here!
+                    ContentUnavailableView("No Results", systemImage: "magnifyingglass", description: Text("Try a different search term."))
                 }
+            } else {
+                ScrollView {
+                    LazyVGrid(columns: columns, spacing: 12) {
+                        ForEach(filteredClips, id: \.id) { clip in
+                            ClipCard(clip: clip)
+                                .onTapGesture { selectedClip = clip }
+                        }
+                    }
+                    .padding()
+                }
+            }
 
-                if let clip = selectedClip {
-                    Color.black.opacity(0.3).ignoresSafeArea().onTapGesture { selectedClip = nil }
-                    ClipDetailSheet(clip: clip, onDelete: {
-                        modelContext.delete(clip)
-                        try? modelContext.save()
-                        selectedClip = nil
-                    }, onDismiss: { selectedClip = nil })
-                    .frame(width: 500, height: 420)
+            if let clip = selectedClip {
+                Color.black.opacity(0.3).ignoresSafeArea().onTapGesture { selectedClip = nil }
+                ClipDetailSheet(clip: clip, onDelete: {
+                    modelContext.delete(clip)
+                    try? modelContext.save()
+                    selectedClip = nil
+                }, onDismiss: { selectedClip = nil })
+                .frame(width: 500, height: 420)
+                .background(.ultraThickMaterial)
+                .cornerRadius(16)
+            }
+
+            if showDuplicates && !duplicateGroups.isEmpty {
+                Color.black.opacity(0.3).ignoresSafeArea().onTapGesture { showDuplicates = false }
+                DuplicatesDetectionSheet(groups: duplicateGroups, onDismiss: { showDuplicates = false }, modelContext: modelContext)
+                    .frame(width: 550, height: 500)
                     .background(.ultraThickMaterial)
                     .cornerRadius(16)
-                }
-
-                if showDuplicates && !duplicateGroups.isEmpty {
-                    Color.black.opacity(0.3).ignoresSafeArea().onTapGesture { showDuplicates = false }
-                    DuplicatesDetectionSheet(groups: duplicateGroups, onDismiss: { showDuplicates = false }, modelContext: modelContext)
-                        .frame(width: 550, height: 500)
-                        .background(.ultraThickMaterial)
-                        .cornerRadius(16)
-                }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            // ✅ Applied the background to the ZStack so it covers the whole window in ALL states
-            .background(
-                LinearGradient(
-                    colors: [activeTheme.color.opacity(0.08), .clear],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(
+            LinearGradient(
+                colors: [activeTheme.color.opacity(0.08), .clear],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
             )
-            .navigationTitle(title)
-            .searchable(text: $searchText, prompt: "Search clips")
-            .toolbar {
-                ToolbarItemGroup(placement: .secondaryAction) {
-                    Menu {
-                        Section("Type Filter") {
-                            ForEach(ClipType.allCases, id: \.self) { type in
-                                Toggle(isOn: Binding(
-                                    get: { selectedTypes.contains(type) },
-                                    set: { if $0 { selectedTypes.insert(type) } else { selectedTypes.remove(type) } }
-                                )) {
-                                    Label(type.rawValue, systemImage: iconForType(type))
-                                }
+        )
+        .navigationTitle(title)
+        .searchable(text: $searchText, prompt: "Search clips")
+        .toolbar {
+            ToolbarItemGroup(placement: .secondaryAction) {
+                Menu {
+                    Section("Type Filter") {
+                        ForEach(ClipType.allCases, id: \.self) { type in
+                            Toggle(isOn: Binding(
+                                get: { selectedTypes.contains(type) },
+                                set: { if $0 { selectedTypes.insert(type) } else { selectedTypes.remove(type) } }
+                            )) {
+                                Label(type.rawValue, systemImage: iconForType(type))
                             }
                         }
-                        Divider()
-                        Button(action: detectDuplicates) {
-                            Label("Find Duplicates", systemImage: "doc.on.doc")
-                        }
-                    } label: {
-                        Label("Filters", systemImage: "slider.horizontal.3")
                     }
+                    Divider()
+                    Button(action: detectDuplicates) {
+                        Label("Find Duplicates", systemImage: "doc.on.doc")
+                    }
+                } label: {
+                    Label("Filters", systemImage: "slider.horizontal.3")
                 }
             }
         }
-        .onAppear {
-            selectedTypes = Set(ClipType.allCases)
-        }
+    }
 
+    // MARK: - Helper Methods
     private func clipMatchesSearch(_ clip: Item, query: String) -> Bool {
         let q = query.lowercased()
         let note = clip.note?.lowercased() ?? ""
@@ -391,15 +388,6 @@ struct ClipGridView: View {
             || fileName.contains(q)
             || filePath.contains(q)
             || type.contains(q)
-    }
-
-    private func getCachedImage(for clip: Item) -> NSImage? {
-        if let cached = imageCache[clip.id] {
-            return cached
-        }
-        let image = imageForClip(clip)
-        imageCache[clip.id] = image
-        return image
     }
 
     private func detectDuplicates() {
@@ -450,7 +438,6 @@ struct ClipGridView: View {
         clipIconName(for: Item(type: type))
     }
 }
-
 // MARK: - Detail Sheet
 
 struct ClipDetailSheet: View {
@@ -689,7 +676,7 @@ struct DuplicatesDetectionSheet: View {
 
 struct ClipCard: View {
     let clip: Item
-    let cachedImage: NSImage?
+    @State private var cachedImage: NSImage? = nil // Local state for the async image
     @AppStorage("selectedTheme") private var selectedThemeRaw = ThemeOption.orange.rawValue
     @Environment(\.modelContext) private var modelContext
 
@@ -754,12 +741,17 @@ struct ClipCard: View {
         .cornerRadius(12)
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.06), lineWidth: 1))
         .background(
-                    LinearGradient(
-                        colors: [activeTheme.color.opacity(0.08), .clear],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+            LinearGradient(
+                colors: [activeTheme.color.opacity(0.08), .clear],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .task(id: clip.id) {
+            if clip.type == .Images && cachedImage == nil {
+                cachedImage = imageForClip(clip)
+            }
+        }
     }
 
     private func iconName(for clip: Item) -> String {
@@ -770,7 +762,6 @@ struct ClipCard: View {
         relativeClipTime(from: date)
     }
 }
-
 // MARK: - Shared Image Helper
 
 func imageForClip(_ clip: Item) -> NSImage? {
