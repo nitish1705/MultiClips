@@ -168,12 +168,17 @@ struct ContentView: View {
                         }
                         .buttonStyle(.plain)
                         .listRowBackground(sidebarRowBackground(for: "about:versions"))
+
+                        CheckForUpdatesButton(activeTheme: activeTheme)
                     }
                 }
                 .navigationTitle("MultiClips")
                 .tint(activeTheme.color)
             } detail: {
-                selectedDetailView
+                VStack(spacing: 0) {
+                    UpdateBannerView(activeTheme: activeTheme)
+                    selectedDetailView
+                }
             }
 
             if showWelcome {

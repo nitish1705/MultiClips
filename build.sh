@@ -72,5 +72,11 @@ hdiutil create \
   -format UDZO \
   "$DMG_OUTPUT_PATH"
 
-echo "DMG build complete."
-echo "Output: $DMG_OUTPUT_PATH"
+ZIP_OUTPUT_PATH="$BUILD_ROOT/$APP_NAME.app.zip"
+echo "Creating Release Zip for Auto-Updater at: $ZIP_OUTPUT_PATH"
+rm -f "$ZIP_OUTPUT_PATH"
+ditto -c -k --sequesterRsrc --keepParent "$RELEASE_APP_PATH" "$ZIP_OUTPUT_PATH"
+
+echo "Build complete."
+echo "DMG Output: $DMG_OUTPUT_PATH"
+echo "ZIP Output: $ZIP_OUTPUT_PATH"

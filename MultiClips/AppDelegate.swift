@@ -36,6 +36,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             self?.checkPasteboard()
         }
+
+        // Background auto-update check on startup
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            UpdateManager.shared.checkForUpdates(isManualCheck: false)
+        }
     }
 
     private func setupKeyboardHotkey() {
