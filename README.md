@@ -1,5 +1,9 @@
 # MultiClips 📋
 
+[![GitHub release](https://img.shields.io/github/v/release/nitish1705/MultiClips)](https://github.com/nitish1705/MultiClips/releases/latest)
+[![License](https://img.shields.io/github/license/nitish1705/MultiClips)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-macOS-blue)](https://www.apple.com/macos)
+
 > **Copy once, access anytime.** A lightweight, native macOS clipboard manager that never lets you lose what you copied.
 
 MultiClips is a powerful utility that lives in your Mac's menu bar, keeping a persistent, local history of your clipboard. Built entirely with modern macOS technologies (SwiftUI and SwiftData), it is designed to be fast, private, and deeply integrated into the macOS ecosystem.
@@ -16,15 +20,34 @@ MultiClips solves this by running silently in the background. It catches everyth
 
 ## ✨ Core Features
 
-* **Infinite Multi-Clipboard Storage:** Safely stores your entire copy history. Whether it is a snippet of code, a meme from the web, or a PDF document, MultiClips remembers it.
-* **Search & Live Filtering 🔍:** Stop endlessly scrolling. Instantly find past clips using the built-in search bar. The list filters in real-time as you type, scanning through the content of all your saved clips.
-* **Clip Notes & Starring ⭐:** Not all clips are created equal. Add custom, tiny text notes to individual clips to give yourself context for later. Star your most frequently used clips to keep them highly accessible via the three-dot action menu.
-* **Smart Classification:** MultiClips automatically analyzes what you copy and categorizes it into smart folders: **Texts**, **Images**, **Media**, **Documents**, **Files**, and **Links**. 
-* **Intelligent Duplicate Detection:** If you copy the same text or link twice, MultiClips won't clutter your history with duplicates. It recognizes the exact match and simply bumps the existing entry to the very top of your list.
-* **Rich Image Support:** Fully supports macOS screenshots (`⌘ + ⇧ + 4`), images copied directly from web browsers, and raw image files (JPG, PNG, HEIC) copied from Finder. All images display with beautiful, native thumbnail previews.
-* **Built-In Auto-Updater 🔄:** Never miss an update. MultiClips automatically checks for new releases on launch, previews changelogs, and updates itself in 1 click without requiring manual DMG downloads. Learn more in the [Auto-Updater Guide](UPDATER_GUIDE.md).
-* **Uncompromising Privacy:** Your data is yours. All clipboard data stays **strictly on your device** and is stored locally using Apple's secure SwiftData framework. There are no cloud servers, no analytics, and no tracking of any kind.
-* **Native macOS Feel:** Built from the ground up with SwiftUI. MultiClips features proper dark mode support, system fonts, and native material backgrounds that make it feel like an official Apple app.
+### 📋 Clipboard Management
+* **Infinite Multi-Clipboard Storage:** Safely stores your entire copy history. Whether it's a snippet of code, a meme from the web, or a PDF document, MultiClips remembers it.
+* **Smart Classification:** Automatically analyzes and categorizes clips into smart folders: **Texts**, **Images**, **Media**, **Documents**, **Files**, and **Links**.
+* **Intelligent Duplicate Detection:** Won't clutter your history with duplicates. Recognizes exact matches and bumps them to the top of your list.
+* **Rich Image Support:** Fully supports macOS screenshots (`⌘ + ⇧ + 4`), images from browsers, and files (JPG, PNG, HEIC) with beautiful thumbnail previews.
+
+### 🔍 Search & Organization
+* **Search & Live Filtering:** Instantly find past clips with real-time search that scans through all your saved content as you type.
+* **Pin Clips:** Keep your most important clips easily accessible by pinning them to the top.
+* **Clip Notes & Starring ⭐:** Add custom notes to clips for context. Star frequently used clips for quick access.
+* **Advanced Filtering:** Filter clips by category with one-click category buttons in All Clips view.
+
+### ⚡ Power User Features
+* **Keyboard Shortcuts:** Navigate MultiClips with custom keyboard hotkeys for instant access.
+* **Quick Actions:** Three-dot menu on each clip for pin, star, notes, and more.
+* **Batch Operations:** Select and manage multiple clips at once.
+
+### 🔄 Built-In Auto-Updater
+* **One-Click Updates:** Never manually download updates again. MultiClips checks for new releases on launch and updates itself in seconds.
+* **Changelog Preview:** See what's new before updating with in-app release notes.
+* **Build Number Tracking:** Dual-versioning system ensures accurate update detection for both major releases and bug fixes.
+* **Background Downloads:** Updates download in the background, then install with a single click and relaunch.
+* **Learn more:** [Auto-Updater Documentation](UPDATER_GUIDE.md) | [How It Works](HOW_AUTO_UPDATE_WORKS.md)
+
+### 🔒 Privacy & Performance
+* **Uncompromising Privacy:** All data stays **strictly on your device**. Stored locally using Apple's secure SwiftData framework. Zero cloud servers, zero analytics, zero tracking.
+* **Native macOS Feel:** Built from the ground up with SwiftUI. Proper dark mode, system fonts, and native materials make it feel like an official Apple app.
+* **Optimized Performance:** Efficient image caching and smart rendering for smooth scrolling even with thousands of clips.
 
 ---
 
@@ -40,11 +63,14 @@ MultiClips solves this by running silently in the background. It catches everyth
 
 ### Option 1: Download the Release (Recommended)
 
-1. Navigate to the [Releases](../../releases) page.
-2. Download the latest **MultiClips_v2.0.dmg** file.
+1. Navigate to the [**Releases**](https://github.com/nitish1705/MultiClips/releases/latest) page.
+2. Download the latest **MultiClips-local.dmg** file.
 3. Open the downloaded `.dmg` file.
 4. Drag the **MultiClips** application icon into the **Applications** folder shortcut.
 5. Eject the DMG file from your desktop.
+6. Launch MultiClips from your Applications folder.
+
+**Note:** After the first install, MultiClips will auto-update itself - you'll never need to manually download a DMG again!
 
 ---
 
@@ -78,3 +104,77 @@ If you prefer to compile the app yourself, you can easily build it using Xcode.
 git clone [https://github.com/nitish1705/MultiClips.git](https://github.com/nitish1705/MultiClips.git)
 cd MultiClips
 open MultiClips.xcodeproj
+```
+
+Then build and run from Xcode (⌘ + R).
+
+---
+
+## 💻 System Requirements
+
+- **macOS**: 13.0 (Ventura) or later
+- **Architecture**: Apple Silicon (M1/M2/M3) or Intel
+- **Storage**: ~3 MB app size
+- **Permissions**: Accessibility access (for clipboard monitoring)
+
+---
+
+## 📚 Documentation
+
+- **[Auto-Updater Guide](UPDATER_GUIDE.md)** - Complete technical reference for the built-in updater system
+- **[How Auto-Update Works](HOW_AUTO_UPDATE_WORKS.md)** - End-to-end explanation of the update process
+- **[Release Workflow](RELEASE_WORKFLOW_EXAMPLE.md)** - Step-by-step release scenarios for contributors
+- **[Quick Reference](QUICK_REFERENCE.md)** - One-page cheat sheet for developers
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Whether it's:
+- 🐛 Bug reports
+- 💡 Feature requests  
+- 📝 Documentation improvements
+- 🔧 Code contributions
+
+Please feel free to open an issue or submit a pull request.
+
+### For Developers
+
+MultiClips uses:
+- **SwiftUI** for the user interface
+- **SwiftData** for local persistence
+- **Combine** for reactive programming
+- Native **AppKit** for menu bar integration
+
+---
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 🙏 Acknowledgments
+
+Built with modern macOS technologies:
+- SwiftUI for declarative UI
+- SwiftData for efficient data persistence
+- Apple's Clipboard API for reliable clipboard monitoring
+
+---
+
+## 📬 Contact & Support
+
+- **Issues**: [GitHub Issues](https://github.com/nitish1705/MultiClips/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/nitish1705/MultiClips/discussions)
+- **Developer**: [@nitish1705](https://github.com/nitish1705)
+
+---
+
+<div align="center">
+
+**⭐ If you find MultiClips useful, consider starring the repo!**
+
+Made with ❤️ for macOS
+
+</div>
