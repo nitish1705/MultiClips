@@ -112,9 +112,10 @@ struct ContentView: View {
                         .buttonStyle(.plain)
                         .listRowBackground(sidebarRowBackground(for: "settings:general"))
 
-                        // Icon-bearing labels and .switch toggles so text starts at the same
-                        // x as the rest of the sidebar. A bare Picker label and the default
-                        // checkbox style both put their control first, breaking the column.
+                        // Every settings row is laid out the same way: icon + text leading,
+                        // control trailing. A plain Toggle puts its checkbox first, which
+                        // pushed the icon and text out of the column the rest of the sidebar
+                        // shares -- hence the leading Label and a labelsHidden control.
                         Picker(selection: $selectedThemeRaw) {
                             ForEach(ThemeOption.allCases) { theme in
                                 Text(theme.title).tag(theme.rawValue)
@@ -123,16 +124,22 @@ struct ContentView: View {
                             Label("Theme", systemImage: "paintpalette")
                         }
 
-                        Toggle(isOn: $isICloudSyncEnabled) {
+                        HStack {
                             Label("iCloud Sync", systemImage: "icloud")
+                            Spacer(minLength: 8)
+                            Toggle("", isOn: $isICloudSyncEnabled)
+                                .toggleStyle(.checkbox)
+                                .labelsHidden()
                         }
-                        .toggleStyle(.switch)
 
-                        Toggle(isOn: $launchAtLogin) {
+                        HStack {
                             Label("Launch at Login", systemImage: "arrow.clockwise")
+                            Spacer(minLength: 8)
+                            Toggle("", isOn: $launchAtLogin)
+                                .toggleStyle(.checkbox)
+                                .labelsHidden()
                         }
-                        .toggleStyle(.switch)
-                        .onChange(of: launchAtLogin) {oldValue, newValue in
+                        .onChange(of: launchAtLogin) { oldValue, newValue in
                             if newValue {
                                 LoginItemManager.enable()
                             } else {
@@ -143,16 +150,21 @@ struct ContentView: View {
                             }
                         }
 
-                        // Same shape as every other sidebar row: plain style, full-width
-                        // leading label. The default button style renders bordered and
-                        // centred, which is why this one sat out of line with the rest.
+                        // Outlined button matching Check for Updates -- destructive actions
+                        // should look like actions, not like another navigation row.
                         Button(role: .destructive) { showDeleteAllAlert = true } label: {
-                            Label("Clear History", systemImage: "trash")
-                                .foregroundStyle(.red)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .contentShape(Rectangle())
+                            HStack(spacing: 6) {
+                                Image(systemName: "trash")
+                                Text("Clear History")
+                            }
+                            .frame(maxWidth: .infinity)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.bordered)
+                        .controlSize(.large)
+                        .tint(.red)
+                        .padding(.top, 4)
+                        .padding(.bottom, 2)
+                        .listRowBackground(Color.clear)
                         .alert("Clear All History?", isPresented: $showDeleteAllAlert) {
                             Button("Cancel", role: .cancel) {}
                             Button("Delete All", role: .destructive) { deleteAllClips() }
@@ -185,19 +197,15 @@ struct ContentView: View {
                         }
                         .buttonStyle(.plain)
                         .listRowBackground(sidebarRowBackground(for: "about:versions"))
-                    }
-                }
-                // Check for Updates sits below the List, not inside it — inside, List styled it
-                // as a navigation row rather than a button.
-                .safeAreaInset(edge: .bottom, spacing: 0) {
-                    VStack(spacing: 0) {
-                        Divider()
+
+                        // Scrolls with the list rather than pinned. It reads as a button
+                        // because CheckForUpdatesButton sets .bordered explicitly -- the
+                        // original problem was that it had no style and inherited the row's.
                         CheckForUpdatesButton(activeTheme: activeTheme)
-                            .padding(.horizontal, 12)
-                            .padding(.top, 10)
-                            .padding(.bottom, 12)
+                            .padding(.top, 4)
+                            .padding(.bottom, 2)
+                            .listRowBackground(Color.clear)
                     }
-                    .background(.bar)
                 }
                 .navigationTitle("MultiClips")
                 .tint(activeTheme.color)
