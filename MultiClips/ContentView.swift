@@ -752,10 +752,16 @@ struct ClipCard: View {
                     Text(clip.textCopied ?? "Empty").lineLimit(4).font(.callout)
                 case .Images:
                     if let img = cachedImage {
-                        Image(nsImage: img)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        // Color.clear drives the layout and the image rides along as an
+                        // overlay, so the card's geometry never depends on the image's own
+                        // dimensions. As the window narrows the crop simply shows less of
+                        // the picture at the same scale, instead of shrinking to fit it in.
+                        Color.clear
+                            .overlay(alignment: .top) {
+                                Image(nsImage: img)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                            }
                             .clipShape(RoundedRectangle(cornerRadius: 6))
                     } else {
                         Text("Image unavailable").foregroundStyle(.secondary)
