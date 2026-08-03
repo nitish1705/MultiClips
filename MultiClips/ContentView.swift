@@ -563,6 +563,10 @@ struct ClipDetailSheet: View {
         }
         .alert("Copied!", isPresented: $showCopiedAlert) { Button("OK", role: .cancel) {} }
         .onExitCommand(perform: onDismiss)
+        // The sheet had no tint, so .borderedProminent controls in it (Copy) fell back to the
+        // system accent instead of the selected theme. Applied at the root so every tinted
+        // control in the sheet follows, not just the one that was noticed.
+        .tint(activeTheme.color)
     }
 
     private var noteBinding: Binding<String> {

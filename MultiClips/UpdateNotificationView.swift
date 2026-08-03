@@ -37,6 +37,21 @@ struct UpdateBannerView: View {
     }
 
     var body: some View {
+        // The transitions below only play if an animated container owns the conditional.
+        // Without this Group the banner popped in and out instantly.
+        Group {
+            bannerContent
+        }
+        .animation(.spring(response: 0.38, dampingFraction: 0.82), value: updateManager.updateAvailable)
+        .animation(.spring(response: 0.38, dampingFraction: 0.82), value: updateManager.bannerDismissed)
+        .animation(.easeInOut(duration: 0.22), value: updateManager.upToDateMessageShown)
+        .animation(.easeInOut(duration: 0.22), value: updateManager.errorMessage)
+        .animation(.easeInOut(duration: 0.2), value: updateManager.isDownloading)
+        .animation(.easeInOut(duration: 0.2), value: updateManager.isInstalling)
+    }
+
+    @ViewBuilder
+    private var bannerContent: some View {
         if updateManager.updateAvailable, !updateManager.bannerDismissed,
            let release = updateManager.latestRelease {
             VStack(alignment: .leading, spacing: 12) {
@@ -112,6 +127,9 @@ struct UpdateBannerView: View {
                         }
                         ProgressView(value: updateManager.downloadProgress)
                             .tint(activeTheme.color)
+                            // Without this the bar jumps between URLSession's progress
+                            // callbacks instead of sliding.
+                            .animation(.linear(duration: 0.18), value: updateManager.downloadProgress)
                     }
                 } else if updateManager.isInstalling {
                     HStack(spacing: 8) {
