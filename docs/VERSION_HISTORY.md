@@ -1,6 +1,26 @@
 # 📜 MultiClips Version History
 
-## v2.0 Build 6 (Latest) - August 3, 2026
+## v2.1 Build 9 (Latest) - August 3, 2026
+
+### 🎨 Menu Bar Redesign
+- **Hover-revealed actions**: Star and the actions button now stay hidden until a row is hovered, so the resting list is just content. A starred clip keeps its star visible at rest
+- **New header**: Material bar with the clipboard glyph in a theme-tinted chip
+- **Compact footer**: Two stacked icon buttons, Open and Quit, replacing three full-width rows
+- **Clear History removed from the menu bar**: bulk delete now lives only in the main window sidebar, where it is gated behind a confirmation alert instead of being one unguarded click away
+
+### 📄 Version History & Credits Redesign
+- **Release cards**: Each version is now a card, with the newest carrying a Latest badge and a tinted fill
+- **Two-column highlights** on wider windows, collapsing to one below 700pt
+- **Readable release notes**: Bullet text is no longer drawn in the theme colour, which had made the page a wall of tinted body copy
+- **Credits rebuilt**: Monogram avatar, real profile handles as subtitles, and a new "About this app" panel showing version, system requirement, storage and licence
+- **Removed duplicate Quick Links**: They repeated the rows above them and always rendered system blue regardless of the selected theme
+
+### 🐛 Bug Fixes
+- **Fixed theme tint showing desktop colours through the window**: Four views faded their theme gradient to a fully transparent colour with nothing opaque underneath, so the panes were genuinely see-through. On a green-yellow wallpaper the purple theme read green. Each now fades on-hue over a solid window background
+
+---
+
+## v2.0 Build 6 - August 3, 2026
 
 ### 🔧 Build System Improvements
 - **Ad-Hoc Code Signing**: Added proper ad-hoc signing to prevent "damaged app" errors on macOS
@@ -95,9 +115,9 @@ MultiClips uses a **dual-versioning system**:
 - **Build Number** (e.g., `Build 6`) - Incremental builds and patches
 
 ### Format
-- **Full Version**: `v2.0 (Build 6)`
-- **GitHub Tag**: `v2.0-b6` or `v2.0+6`
-- **Release Title**: `MultiClips v2.0 Build 6`
+- **Full Version**: `v2.1 (Build 9)`
+- **GitHub Tag**: `v2.1-b9` or `v2.1+9`
+- **Release Title**: `MultiClips v2.1 Build 9`
 
 ### Update Detection
 An update is triggered when:
@@ -108,6 +128,6 @@ This ensures users always get the latest fixes and features!
 
 ---
 
-**Latest Release**: [v2.0-b6](https://github.com/nitish1705/MultiClips/releases/latest)
+**Latest Release**: [v2.1-b9](https://github.com/nitish1705/MultiClips/releases/latest)
 
 **Documentation**: [Auto-Updater Guide](UPDATER_GUIDE.md) | [How It Works](HOW_AUTO_UPDATE_WORKS.md)

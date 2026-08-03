@@ -42,6 +42,9 @@ enum ThemeOption: String, CaseIterable, Identifiable {
 struct AppRelease: Identifiable {
     let id = UUID()
     let version: String
+    /// Build label shown as a separate chip, e.g. "Build 7". `var` so the memberwise
+    /// initialiser still takes it while defaulting to nil for older releases.
+    var build: String? = nil
     let date: String
     let highlights: [String]
 }
@@ -170,6 +173,9 @@ struct ContentView: View {
                         .listRowBackground(sidebarRowBackground(for: "about:versions"))
 
                         CheckForUpdatesButton(activeTheme: activeTheme)
+                            .foregroundStyle(sidebarRowForeground(for: "about:updates"))
+                            .tint(sidebarRowForeground(for: "about:updates"))
+                            .listRowBackground(sidebarRowBackground(for: "about:updates"))
                     }
                 }
                 .navigationTitle("MultiClips")
@@ -348,15 +354,19 @@ struct ClipGridView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
             LinearGradient(
-                colors: [activeTheme.color.opacity(0.08), .clear],
+                colors: [activeTheme.color.opacity(0.10), activeTheme.color.opacity(0)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
         )
+        .background(Color(nsColor: .windowBackgroundColor))
         .navigationTitle(title)
         .searchable(text: $searchText, prompt: "Search clips")
         .toolbar {
-            ToolbarItemGroup(placement: .secondaryAction) {
+            // .secondaryAction lands in the centre of a macOS toolbar, leaving the filter
+            // control floating between the title and the search field. .primaryAction puts
+            // it on the trailing edge, grouped with search where it belongs.
+            ToolbarItemGroup(placement: .primaryAction) {
                 Menu {
                     Section("Type Filter") {
                         ForEach(ClipType.allCases, id: \.self) { type in
@@ -800,11 +810,12 @@ struct HistoryView: View {
         .scrollContentBackground(.hidden)
         .background(
             LinearGradient(
-                colors: [activeTheme.color.opacity(0.08), .clear],
+                colors: [activeTheme.color.opacity(0.10), activeTheme.color.opacity(0)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
         )
+        .background(Color(nsColor: .windowBackgroundColor))
         .navigationTitle("History")
     }
 }
@@ -853,21 +864,24 @@ struct MenuBarView: View {
     var body: some View {
         ZStack {
             VStack(spacing: 0) {
-                HStack {
-                    Image(systemName: "clipboard.fill").foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    Image(systemName: "clipboard.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(activeTheme.color)
+                        .frame(width: 22, height: 22)
+                        .background(
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .fill(activeTheme.color.opacity(0.20))
+                        )
                     Text("MultiClips").font(.headline)
                     Spacer()
                 }
-                .padding(.horizontal, 12)
-                .padding(.bottom, 10)
-                .padding(.top, 10)
-                .background(
-                    LinearGradient(
-                        colors: [activeTheme.color.opacity(0.1), .clear],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(.regularMaterial)
+                .overlay(alignment: .top) {
+                    Rectangle().fill(.white.opacity(0.08)).frame(height: 1)
+                }
 
                 Divider()
 
@@ -899,45 +913,23 @@ struct MenuBarView: View {
 
                 Divider()
 
-                VStack(spacing: 2) {
-                    Button {
+                // Clear History intentionally lives only in the main window sidebar, where it is
+                // gated behind a confirm alert. One-click bulk delete does not belong in a menu bar.
+                HStack(spacing: 4) {
+                    footerButton(icon: "arrow.up.forward.app", label: "Open") {
                         NotificationCenter.default.post(name: .openMainWindowRequest, object: nil)
                         openWindow(id: "main-window")
                         NSApplication.shared.activate(ignoringOtherApps: true)
-                    } label: {
-                        HStack { Image(systemName: "macwindow"); Text("Open MultiClips"); Spacer() }
-                            .padding(.horizontal, 12).padding(.vertical, 6).contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
 
-                    Button {
-                        clips.forEach { modelContext.delete($0) }
-                        try? modelContext.save()
-                    } label: {
-                        HStack { Image(systemName: "trash"); Text("Clear History"); Spacer() }
-                            .foregroundStyle(.red)
-                            .padding(.horizontal, 12).padding(.vertical, 6).contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-
-                    Divider()
-
-                    Button {
+                    footerButton(icon: "power", label: "Quit", tint: .red) {
                         NSApplication.shared.terminate(nil)
-                    } label: {
-                        HStack { Image(systemName: "power"); Text("Quit MultiClips"); Spacer() }
-                            .padding(.horizontal, 12).padding(.vertical, 6).contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
                 }
-                .padding(.vertical, 4)
-                .background(
-                            LinearGradient(
-                                colors: [activeTheme.color.opacity(0.1), .clear],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                .padding(.horizontal, 5)
+                .padding(.top, 4)
+                .padding(.bottom, 5)
+                .background(.regularMaterial)
             }
             .frame(width: 300)
 
@@ -960,6 +952,27 @@ struct MenuBarView: View {
             }
         }
         .tint(activeTheme.color)
+    }
+
+    @ViewBuilder
+    private func footerButton(
+        icon: String,
+        label: String,
+        tint: Color? = nil,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            VStack(spacing: 3) {
+                Image(systemName: icon).font(.system(size: 12))
+                Text(label).font(.caption2)
+            }
+            // tint on the VStack so glyph *and* label colour together
+            .foregroundStyle(tint ?? .secondary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 5)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private func copyClipToPasteboard(_ clip: Item) {
@@ -1022,6 +1035,8 @@ struct MenuBarClipRow: View {
                     }
                 }
                 Spacer()
+                // Actions stay out of the way until the row is hovered. Opacity goes on each
+                // button separately, never the HStack, so a starred clip keeps its star at rest.
                 HStack(spacing: 4) {
                     Button(action: onToggleStar) {
                         Image(systemName: clip.isStarred ? "star.fill" : "star")
@@ -1029,6 +1044,8 @@ struct MenuBarClipRow: View {
                             .foregroundStyle(clip.isStarred ? themeColor : themeColor.opacity(0.28))
                     }
                     .buttonStyle(.plain)
+                    .opacity(isHovered || clip.isStarred ? 1 : 0)
+                    .allowsHitTesting(isHovered || clip.isStarred)
 
                     Button(action: onOpenActions) {
                         Image(systemName: "ellipsis.circle")
@@ -1036,7 +1053,10 @@ struct MenuBarClipRow: View {
                             .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
+                    .opacity(isHovered ? 1 : 0)
+                    .allowsHitTesting(isHovered)
                 }
+                .animation(.easeOut(duration: 0.18), value: isHovered)
             }
             .padding(.horizontal, 12).padding(.vertical, 6)
             .background(isHovered ? themeColor.opacity(0.16) : Color.clear)
@@ -1175,83 +1195,127 @@ struct MenuBarClipActionsSheet: View {
 // MARK: - Credits View
 
 struct CreditsView: View {
+    @ObservedObject private var updateManager = UpdateManager.shared
     @AppStorage("selectedTheme") private var selectedThemeRaw = ThemeOption.orange.rawValue
 
     private var activeTheme: ThemeOption {
         ThemeOption(rawValue: selectedThemeRaw) ?? .orange
     }
 
+    private let developerName = "Nitish"
+    private let githubURL = "https://github.com/nitish1705"
+    private let linkedInURL = "https://www.linkedin.com/in/nitish--m"
+
+    /// Read from the bundle rather than hardcoded, so it cannot drift from the build.
+    private var versionLabel: String {
+        "v\(UpdateManager.shared.currentVersion) (Build \(UpdateManager.shared.currentBuildNumber))"
+    }
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                HStack(spacing: 12) {
-                    ZStack {
-                        Circle()
-                            .fill(activeTheme.color.opacity(0.18))
-                            .frame(width: 44, height: 44)
-                        Image(systemName: "person.crop.circle.fill")
-                            .font(.title3)
-                            .foregroundStyle(activeTheme.color)
-                    }
+            VStack(spacing: 0) {
+                heroBlock
 
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Developer")
-                            .font(.title2.bold())
-                            .foregroundStyle(activeTheme.color)
-                        Text("Developed by Nitish")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                }
-
-                VStack(spacing: 10) {
+                VStack(spacing: 9) {
                     socialLinkRow(
                         title: "GitHub Profile",
-                        subtitle: "Open projects and source code",
+                        subtitle: "github.com/nitish1705",
                         systemImage: "chevron.left.forwardslash.chevron.right",
-                        destination: "https://github.com/nitish1705"
+                        destination: githubURL
                     )
 
                     socialLinkRow(
                         title: "LinkedIn Profile",
-                        subtitle: "Connect professionally",
+                        subtitle: "linkedin.com/in/nitish--m",
                         systemImage: "person.2.fill",
-                        destination: "https://www.linkedin.com"
+                        destination: linkedInURL
                     )
+
+                    updatesRow
                 }
 
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Quick Links")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(activeTheme.color)
-
-                    HStack(spacing: 8) {
-                        Link("GitHub", destination: URL(string: "https://github.com/nitish1705")!)
-                            .font(.caption.weight(.medium))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(Capsule().fill(activeTheme.color.opacity(0.14)))
-
-                        Link("LinkedIn", destination: URL(string: "https://www.linkedin.com/in/nitish--m")!)
-                            .font(.caption.weight(.medium))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(Capsule().fill(activeTheme.color.opacity(0.14)))
-                    }
-                }
+                aboutBlock
+                    .padding(.top, 26)
             }
+            .frame(maxWidth: 560)
+            .frame(maxWidth: .infinity)
             .padding(24)
         }
         .background(
             LinearGradient(
-                colors: [activeTheme.color.opacity(0.08), .clear],
+                colors: [activeTheme.color.opacity(0.10), activeTheme.color.opacity(0)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
         )
+        .background(Color(nsColor: .windowBackgroundColor))
         .navigationTitle("Credits")
         .tint(activeTheme.color)
+    }
+
+    private var heroBlock: some View {
+        VStack(spacing: 0) {
+            Text(String(developerName.prefix(1)))
+                .font(.system(size: 27, weight: .semibold))
+                .foregroundStyle(activeTheme.color)
+                .frame(width: 78, height: 78)
+                .background(Circle().fill(activeTheme.color.opacity(0.16)))
+                .overlay(Circle().stroke(activeTheme.color.opacity(0.30), lineWidth: 1))
+                .overlay(Circle().stroke(activeTheme.color.opacity(0.07), lineWidth: 7).scaleEffect(1.18))
+                .padding(.bottom, 15)
+
+            Text(developerName)
+                .font(.system(size: 22, weight: .bold))
+                .padding(.bottom, 4)
+
+            Text("Developer & maintainer, MultiClips")
+                .font(.system(size: 12.5))
+                .foregroundStyle(.secondary)
+                .padding(.bottom, 4)
+
+            Text("Built with SwiftUI and SwiftData for macOS")
+                .font(.system(size: 11.5))
+                .foregroundStyle(.tertiary)
+                .padding(.bottom, 24)
+        }
+    }
+
+    private var aboutBlock: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("ABOUT THIS APP")
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(1.2)
+                .foregroundStyle(.tertiary)
+
+            LazyVGrid(
+                columns: [GridItem(.flexible(), spacing: 1), GridItem(.flexible(), spacing: 1)],
+                spacing: 1
+            ) {
+                factCell("Version", versionLabel)
+                factCell("Requires", "macOS 14.6 or later")
+                factCell("Storage", "SwiftData, on-device")
+                factCell("Licence", "MIT")
+            }
+            .background(Color.primary.opacity(0.09))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color.primary.opacity(0.09), lineWidth: 1)
+            )
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func factCell(_ key: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(key).font(.system(size: 10.5)).foregroundStyle(.tertiary)
+            Text(value).font(.system(size: 12.5, weight: .medium))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 13)
+        .padding(.vertical, 11)
+        .background(Color(nsColor: .windowBackgroundColor))
     }
 
     @ViewBuilder
@@ -1261,36 +1325,76 @@ struct CreditsView: View {
                 Image(systemName: systemImage)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(activeTheme.color)
-                    .frame(width: 28, height: 28)
-                    .background(Circle().fill(activeTheme.color.opacity(0.14)))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.callout.weight(.semibold))
+                        .font(.system(size: 12.5, weight: .medium))
+                        .foregroundStyle(.primary)
+
                     Text(subtitle)
-                        .font(.caption)
+                        .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }
 
                 Spacer()
 
                 Image(systemName: "arrow.up.right")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(activeTheme.color)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.tertiary)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(activeTheme.color.opacity(0.10))
-            )
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .background(Color(nsColor: .windowBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(activeTheme.color.opacity(0.18), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color.primary.opacity(0.09), lineWidth: 1)
             )
-            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+
+    private var updatesRow: some View {
+        Button {
+            updateManager.checkForUpdates(isManualCheck: true)
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "arrow.clockwise.circle.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(activeTheme.color)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(updateManager.isChecking ? "Checking for Updates..." : "Check for Updates")
+                        .font(.system(size: 12.5, weight: .medium))
+                        .foregroundStyle(.primary)
+
+                    Text(updateManager.updateAvailable ? "New version available!" : "You are on the latest build (\(versionLabel))")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                if updateManager.isChecking {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                } else {
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .background(Color(nsColor: .windowBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color.primary.opacity(0.09), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(updateManager.isChecking || updateManager.isDownloading)
     }
 }
 
@@ -1303,9 +1407,26 @@ struct VersionHistoryView: View {
         ThemeOption(rawValue: selectedThemeRaw) ?? .orange
     }
 
+    /// Highlights are hand-maintained; the newest entry's build number is read from the
+    /// bundle so it cannot drift. `build.sh` bumps CURRENT_PROJECT_VERSION on every run,
+    /// which is exactly how a hardcoded label goes stale.
+    /// Stays a stored property: a computed one would regenerate each AppRelease's `id`
+    /// on every render and break ForEach identity.
     private let releases: [AppRelease] = [
         AppRelease(
-            version: "v2.0 (Build 6)",
+            version: "v2.1",
+            build: "Build \(UpdateManager.shared.currentBuildNumber)",
+            date: "3 Aug 2026",
+            highlights: [
+                "Redesigned menu bar with actions that appear on hover",
+                "Version History rebuilt as release cards",
+                "Credits page redesigned with app details",
+                "Fixed theme tint letting the desktop show through windows"
+            ]
+        ),
+        AppRelease(
+            version: "v2.0",
+            build: "Build 7",
             date: "3 Aug 2026",
             highlights: [
                 "Ad-hoc code signing to prevent 'damaged app' errors",
@@ -1356,34 +1477,108 @@ struct VersionHistoryView: View {
     ]
 
     var body: some View {
-        List(releases) { release in
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text(release.version).font(.headline).foregroundStyle(activeTheme.color)
-                    Spacer()
-                    Text(release.date).font(.caption).foregroundStyle(.secondary)
-                }
+        GeometryReader { geo in
+            let isWide = geo.size.width >= 700
 
-                ForEach(release.highlights, id: \.self) { point in
-                    Label(point, systemImage: "checkmark.circle")
-                        .font(.callout)
-                        .foregroundStyle(activeTheme.color.opacity(0.9))
+            ScrollView {
+                LazyVStack(spacing: 14) {
+                    ForEach(Array(releases.enumerated()), id: \.element.id) { index, release in
+                        releaseCard(release, isLatest: index == 0, isWide: isWide)
+                    }
                 }
+                .padding(22)
             }
-            .padding(.vertical, 4)
-            .listRowBackground(Color.clear)
         }
-        .scrollContentBackground(.hidden)
-        // 3. Apply your gradient to the entire list window
         .background(
             LinearGradient(
-                colors: [activeTheme.color.opacity(0.08), .clear],
+                colors: [activeTheme.color.opacity(0.10), activeTheme.color.opacity(0)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
         )
+        .background(Color(nsColor: .windowBackgroundColor))
         .navigationTitle("Version History")
         .tint(activeTheme.color)
+    }
+
+    @ViewBuilder
+    private func releaseCard(_ release: AppRelease, isLatest: Bool, isWide: Bool) -> some View {
+        let columns = isWide
+            ? [GridItem(.flexible(), alignment: .topLeading), GridItem(.flexible(), alignment: .topLeading)]
+            : [GridItem(.flexible(), alignment: .topLeading)]
+
+        VStack(alignment: .leading, spacing: 13) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text(release.version)
+                    .font(.system(size: 21, weight: .bold))
+                    .tracking(-0.4)
+
+                if let build = release.build {
+                    Text(build)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(RoundedRectangle(cornerRadius: 6).fill(.quaternary))
+                }
+
+                if isLatest {
+                    Text("LATEST")
+                        .font(.system(size: 10, weight: .semibold))
+                        .tracking(0.6)
+                        .foregroundStyle(activeTheme.color)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(activeTheme.color.opacity(0.18)))
+                }
+
+                Spacer(minLength: 8)
+
+                Text(release.date)
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
+                ForEach(release.highlights, id: \.self) { point in
+                    HStack(alignment: .top, spacing: 9) {
+                        Image(systemName: "checkmark.circle")
+                            .font(.system(size: 12))
+                            .foregroundStyle(activeTheme.color)
+                            .padding(.top, 1)
+                        // body copy stays .primary — the accent marks structure, not every word
+                        Text(point)
+                            .font(.system(size: 12.5))
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 0)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 18)
+        .padding(.top, 16)
+        .padding(.bottom, 17)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(isLatest ? activeTheme.color.opacity(0.07) : Color.primary.opacity(0.035))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(
+                    isLatest ? activeTheme.color.opacity(0.28) : Color.primary.opacity(0.09),
+                    lineWidth: 1
+                )
+        )
+        .overlay(alignment: .top) {
+            LinearGradient(
+                colors: [activeTheme.color, activeTheme.color.opacity(0)],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+            .frame(height: 2)
+            .opacity(isLatest ? 1 : 0.35)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 

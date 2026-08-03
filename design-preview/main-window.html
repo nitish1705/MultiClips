@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en" data-mode="dark" data-theme="purple">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MultiClips — Main Window Concepts</title>
+<link rel="stylesheet" href="main-window.css">
+</head>
+<body>
+
+<div class="backdrop" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true"></div>
+
+<header class="bar">
+  <div class="bar__brand">
+    <span class="bar__mark"></span>
+    <span class="bar__title">MultiClips</span>
+    <span class="bar__sub">main window / version history + credits</span>
+  </div>
+
+  <div class="bar__controls">
+    <div class="ctl">
+      <span class="ctl__label">Theme</span>
+      <div class="swatches" id="swatches" role="radiogroup" aria-label="Accent theme">
+        <button class="sw" data-theme="orange" style="--sw:#FF9500" role="radio" aria-checked="false" title="Sunset Orange"></button>
+        <button class="sw" data-theme="blue"   style="--sw:#007AFF" role="radio" aria-checked="false" title="Ocean Blue"></button>
+        <button class="sw" data-theme="green"  style="--sw:#34C759" role="radio" aria-checked="false" title="Forest Green"></button>
+        <button class="sw" data-theme="pink"   style="--sw:#FF2D55" role="radio" aria-checked="false" title="Rose Pink"></button>
+        <button class="sw" data-theme="purple" style="--sw:#AF52DE" role="radio" aria-checked="true"  title="Royal Purple"></button>
+      </div>
+    </div>
+
+    <div class="ctl">
+      <span class="ctl__label">Mode</span>
+      <div class="seg" id="modeSeg">
+        <button data-mode="light">Light</button>
+        <button data-mode="dark" class="is-on">Dark</button>
+      </div>
+    </div>
+
+    <div class="ctl">
+      <span class="ctl__label">View</span>
+      <select id="soloSelect" class="sel">
+        <option value="all">All concepts</option>
+      </select>
+    </div>
+
+    <div class="ctl">
+      <span class="ctl__label">Menu bar</span>
+      <a class="linkbtn" href="index.html">6 concepts →</a>
+    </div>
+  </div>
+</header>
+
+<!-- ============ the tint bug ============ -->
+<section class="bug">
+  <div class="bug__head">
+    <h2 class="bug__h">The purple-goes-green bug</h2>
+    <p class="bug__p">
+      Not a colour-space quirk — the pages are <b>see-through</b>. Both views fade their theme gradient
+      to <code>.clear</code>, which is fully transparent, and nothing opaque sits underneath.
+      So the bottom-right of the window is literally showing your desktop. On a green-yellow wallpaper,
+      purple reads green. Drag the app over a red wallpaper and it would read red.
+      <br>Source: <code>ContentView.swift:1248</code> (Credits) and <code>1380</code> (Version History) —
+      same pattern at <code>351</code>, <code>750</code>, <code>803</code>.
+    </p>
+  </div>
+
+  <div class="bug__demo">
+    <figure class="demo">
+      <div class="demo__stage">
+        <div class="demo__pane is-broken">
+          <span class="demo__tag">now</span>
+          <span class="demo__note">theme gradient → <code>.clear</code></span>
+        </div>
+      </div>
+      <figcaption><b>Now.</b> Wallpaper bleeds through the transparent end of the gradient.</figcaption>
+    </figure>
+
+    <figure class="demo">
+      <div class="demo__stage">
+        <div class="demo__pane is-fixed">
+          <span class="demo__tag">fixed</span>
+          <span class="demo__note">gradient over an opaque base</span>
+        </div>
+      </div>
+      <figcaption><b>Fixed.</b> Same gradient, but fading to the accent at zero alpha over a solid window background.</figcaption>
+    </figure>
+  </div>
+
+  <details class="bug__fix">
+    <summary>The fix</summary>
+<pre><code>// ContentView.swift — Credits (1246) and Version History (1378)
+.background(
+    LinearGradient(
+        colors: [activeTheme.color.opacity(0.10),
+                 activeTheme.color.opacity(0)],   // was .clear
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+)
+.background(Color(nsColor: .windowBackgroundColor))   // new: opaque floor</code></pre>
+    <p>Two changes. The opaque floor is the one that stops the wallpaper. Fading to
+    <code>activeTheme.color.opacity(0)</code> instead of <code>.clear</code> keeps the midtones on-hue
+    rather than drifting toward transparent black — worth doing at the same time, and worth applying to
+    the other three gradients too.</p>
+  </details>
+</section>
+
+<main class="gallery" id="gallery"></main>
+
+<footer class="notes">
+  <h2 class="notes__h">What changed and why</h2>
+  <ul>
+    <li><b>Accent stopped doing everything.</b> Today every release bullet is <code>activeTheme.color.opacity(0.9)</code> (<code>ContentView.swift:1370</code>) — a full page of purple body text. In both redesigns the accent marks structure only; body copy is normal label colour.</li>
+    <li><b>Credits stopped repeating itself.</b> GitHub and LinkedIn currently appear twice: as rows (1209-1221) and again as Quick Links capsules (1229-1241). The capsules also render system blue, not the theme, because <code>Link</code> keeps its own tint. Both concepts drop them and use the space for app facts.</li>
+    <li><b>The empty two-thirds got a job.</b> Credits ends a third of the way down the window. Version, build, platform, storage and licence now fill it — real data, pulled from the bundle rather than hardcoded.</li>
+    <li><b>Icons are approximations.</b> SF Symbols aren't available in a browser; these are hand-drawn SVG stand-ins. Fonts are <code>-apple-system</code>, so type renders in the same SF Pro the app ships.</li>
+  </ul>
+</footer>
+
+<script src="main-window.js"></script>
+</body>
+</html>
