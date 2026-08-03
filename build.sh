@@ -35,6 +35,11 @@ if ! command -v hdiutil >/dev/null 2>&1; then
   exit 1
 fi
 
+if ! command -v codesign >/dev/null 2>&1; then
+  echo "codesign is required but not found."
+  exit 1
+fi
+
 # --- Step 1: Auto-Increment Build Counter in project.pbxproj ---
 OLD_BUILD=$(grep -m 1 "CURRENT_PROJECT_VERSION" "$PBXPROJ_PATH" | tr -cd '0-9' || echo "1")
 if [[ -z "$OLD_BUILD" ]]; then
@@ -76,7 +81,21 @@ if [[ ! -d "$RELEASE_APP_PATH" ]]; then
   exit 1
 fi
 
-# --- Step 3: Package DMG ---
+# --- Step 3: Ad-Hoc Sign the App Bundle ---
+# CODE_SIGNING_ALLOWED=NO leaves only a linker-signed signature that seals the
+# binary but no bundle resources. Gatekeeper reads that as an invalid signature
+# and reports "MultiClips is damaged" once the download picks up quarantine.
+# Signing properly writes Contents/_CodeSignature and downgrades that to the
+# ordinary "unidentified developer" prompt users can approve.
+if [[ "$SIGN_MODE" == "unsigned" ]]; then
+  echo "Ad-hoc signing app bundle..."
+  codesign --force --deep --sign - "$RELEASE_APP_PATH"
+fi
+
+echo "Verifying signature..."
+codesign --verify --deep --strict --verbose=2 "$RELEASE_APP_PATH"
+
+# --- Step 4: Package DMG ---
 echo "Preparing DMG staging folder..."
 rm -rf "$DMG_STAGING_PATH"
 mkdir -p "$DMG_STAGING_PATH"
@@ -92,7 +111,7 @@ hdiutil create \
   -format UDZO \
   "$DMG_OUTPUT_PATH"
 
-# --- Step 4: Package Release Zip for In-App Auto-Updater ---
+# --- Step 5: Package Release Zip for In-App Auto-Updater ---
 ZIP_NAMED_PATH="$BUILD_ROOT/${APP_NAME}-v${MARKETING_VER}-b${NEW_BUILD}.app.zip"
 ZIP_GENERIC_PATH="$BUILD_ROOT/${APP_NAME}.app.zip"
 
