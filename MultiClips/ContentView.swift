@@ -360,7 +360,10 @@ struct ClipGridView: View {
         .navigationTitle(title)
         .searchable(text: $searchText, prompt: "Search clips")
         .toolbar {
-            ToolbarItemGroup(placement: .secondaryAction) {
+            // .secondaryAction lands in the centre of a macOS toolbar, leaving the filter
+            // control floating between the title and the search field. .primaryAction puts
+            // it on the trailing edge, grouped with search where it belongs.
+            ToolbarItemGroup(placement: .primaryAction) {
                 Menu {
                     Section("Type Filter") {
                         ForEach(ClipType.allCases, id: \.self) { type in

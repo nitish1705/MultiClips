@@ -310,7 +310,9 @@ final class UpdateManager: NSObject, ObservableObject, URLSessionDownloadDelegat
         }
 
         if !buildFound, let bodyText = body {
-            let bodyPattern = #"(?i)build\s*(?:number|num|:)\s*([0-9]+)"#
+            // "Build 7", "Build Number: 7", "build: 7" and "Build num 7" must all parse.
+            // The word/colon separator is optional; \b stops this matching inside "rebuild".
+            let bodyPattern = #"(?i)\bbuild\s*(?:number|num)?\s*:?\s*([0-9]+)"#
             if let bodyRegex = try? NSRegularExpression(pattern: bodyPattern),
                let match = bodyRegex.firstMatch(in: bodyText, range: NSRange(bodyText.startIndex..., in: bodyText)),
                let bRange = Range(match.range(at: 1), in: bodyText),
