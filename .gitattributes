@@ -1,0 +1,3 @@
+# Force LF in the working tree. A global core.autocrlf=true otherwise checks out
+# build.sh with CRLF, and bash cannot parse `then\r` / `fi\r`.
+* text=auto eol=lf

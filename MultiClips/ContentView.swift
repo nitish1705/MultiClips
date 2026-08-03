@@ -920,9 +920,9 @@ struct MenuBarView: View {
                         NSApplication.shared.terminate(nil)
                     }
                 }
-                .padding(.horizontal, 6)
-                .padding(.top, 8)
-                .padding(.bottom, 9)
+                .padding(.horizontal, 5)
+                .padding(.top, 4)
+                .padding(.bottom, 5)
                 .background(.regularMaterial)
             }
             .frame(width: 300)
@@ -956,14 +956,14 @@ struct MenuBarView: View {
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            VStack(spacing: 5) {
-                Image(systemName: icon).font(.system(size: 15))
-                Text(label).font(.caption)
+            VStack(spacing: 3) {
+                Image(systemName: icon).font(.system(size: 12))
+                Text(label).font(.caption2)
             }
             // tint on the VStack so glyph *and* label colour together
             .foregroundStyle(tint ?? .secondary)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
+            .padding(.vertical, 5)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -1358,12 +1358,15 @@ struct VersionHistoryView: View {
         ThemeOption(rawValue: selectedThemeRaw) ?? .orange
     }
 
-    /// Hand-maintained. Bump the newest entry's `build` whenever
-    /// `CURRENT_PROJECT_VERSION` changes in the project file, or this drifts.
+    /// Highlights are hand-maintained; the newest entry's build number is read from the
+    /// bundle so it cannot drift. `build.sh` bumps CURRENT_PROJECT_VERSION on every run,
+    /// which is exactly how a hardcoded label goes stale.
+    /// Stays a stored property: a computed one would regenerate each AppRelease's `id`
+    /// on every render and break ForEach identity.
     private let releases: [AppRelease] = [
         AppRelease(
             version: "v2.0",
-            build: "Build 7",
+            build: "Build \(UpdateManager.shared.currentBuildNumber)",
             date: "3 Aug 2026",
             highlights: [
                 "Ad-hoc code signing to prevent 'damaged app' errors",
