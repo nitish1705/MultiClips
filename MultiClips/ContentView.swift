@@ -1305,6 +1305,16 @@ struct VersionHistoryView: View {
 
     private let releases: [AppRelease] = [
         AppRelease(
+            version: "v2.0 (Build 6)",
+            date: "3 Aug 2026",
+            highlights: [
+                "Ad-hoc code signing to prevent 'damaged app' errors",
+                "Fixed DMG installation issues on macOS",
+                "Auto-updater with one-click updates",
+                "Build number tracking for accurate update detection"
+            ]
+        ),
+        AppRelease(
             version: "v1.2.1",
             date: "26 Mar 2026",
             highlights: [
