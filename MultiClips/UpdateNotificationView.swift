@@ -42,10 +42,11 @@ struct UpdateBannerView: View {
         Group {
             bannerContent
         }
-        .animation(.spring(response: 0.38, dampingFraction: 0.82), value: updateManager.updateAvailable)
-        .animation(.spring(response: 0.38, dampingFraction: 0.82), value: updateManager.bannerDismissed)
-        .animation(.easeInOut(duration: 0.22), value: updateManager.upToDateMessageShown)
-        .animation(.easeInOut(duration: 0.22), value: updateManager.errorMessage)
+        // Low damping gives the slight overshoot that reads as a toast dropping in.
+        .animation(.spring(response: 0.42, dampingFraction: 0.68), value: updateManager.updateAvailable)
+        .animation(.spring(response: 0.42, dampingFraction: 0.68), value: updateManager.bannerDismissed)
+        .animation(.spring(response: 0.42, dampingFraction: 0.68), value: updateManager.upToDateMessageShown)
+        .animation(.spring(response: 0.42, dampingFraction: 0.68), value: updateManager.errorMessage)
         .animation(.easeInOut(duration: 0.2), value: updateManager.isDownloading)
         .animation(.easeInOut(duration: 0.2), value: updateManager.isInstalling)
     }
@@ -192,7 +193,14 @@ struct UpdateBannerView: View {
             .padding(.vertical, 10)
             .background(.regularMaterial)
             .overlay(alignment: .bottom) { Divider() }
-            .transition(.move(edge: .top).combined(with: .opacity))
+            // Same entrance as the toasts, but no auto-close: an available update is an
+            // action item, not a transient message.
+            .transition(.asymmetric(
+                insertion: .move(edge: .top)
+                    .combined(with: .opacity)
+                    .combined(with: .scale(scale: 0.96, anchor: .top)),
+                removal: .move(edge: .trailing).combined(with: .opacity)
+            ))
         } else if updateManager.upToDateMessageShown {
             // Green stays: this is semantic success, not theming.
             statusStrip(
@@ -213,7 +221,8 @@ struct UpdateBannerView: View {
         }
     }
 
-    /// Shared shell for the up-to-date and error strips, so both match the banner's scale.
+    /// Shared shell for the up-to-date and error strips. Both behave as toasts: they close
+    /// themselves after a few seconds, show how long is left, and hold while hovered.
     @ViewBuilder
     private func statusStrip(
         icon: String,
@@ -221,14 +230,40 @@ struct UpdateBannerView: View {
         text: String,
         onDismiss: @escaping () -> Void
     ) -> some View {
+        ToastStrip(icon: icon, tint: tint, text: text, onDismiss: onDismiss)
+    }
+}
+
+// MARK: - Toast
+
+/// A self-closing notification modelled on react-toastify: springy slide-in from the top,
+/// a progress bar counting the time down, hover to hold it open, and a slide-out to the
+/// trailing edge. Auto-close is what makes these transient messages toasts rather than
+/// banners — an available update is an action item, so it deliberately does not use this.
+private struct ToastStrip: View {
+    let icon: String
+    let tint: Color
+    let text: String
+    let onDismiss: () -> Void
+
+    private let lifetime: TimeInterval = 5
+    private let tick: TimeInterval = 0.05
+
+    @State private var remaining: TimeInterval = 5
+    @State private var isHovered = false
+
+    private var progress: Double { max(0, remaining) / lifetime }
+
+    var body: some View {
         HStack(spacing: 9) {
             Image(systemName: icon)
                 .font(.system(size: 12))
                 .foregroundStyle(tint)
             Text(text)
                 .font(.system(size: 12.5))
-            Spacer()
-            Button(action: onDismiss) {
+                .textSelection(.enabled)
+            Spacer(minLength: 8)
+            Button(action: dismiss) {
                 Image(systemName: "xmark")
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(.secondary)
@@ -246,11 +281,46 @@ struct UpdateBannerView: View {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .stroke(tint.opacity(0.28), lineWidth: 1)
         )
+        // Countdown bar hugging the bottom edge, the way toastify draws it.
+        .overlay(alignment: .bottom) {
+            GeometryReader { geo in
+                Capsule()
+                    .fill(tint)
+                    .frame(width: geo.size.width * progress)
+                    .opacity(isHovered ? 0.45 : 0.9)
+            }
+            .frame(height: 2.5)
+            .padding(.horizontal, 6)
+            .padding(.bottom, 2)
+            .animation(.linear(duration: tick), value: remaining)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .onHover { isHovered = $0 }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(.regularMaterial)
         .overlay(alignment: .bottom) { Divider() }
-        .transition(.opacity)
+        .transition(.asymmetric(
+            insertion: .move(edge: .top)
+                .combined(with: .opacity)
+                .combined(with: .scale(scale: 0.94, anchor: .top)),
+            removal: .move(edge: .trailing).combined(with: .opacity)
+        ))
+        // Keyed on the message so a new toast restarts the clock instead of inheriting
+        // whatever was left of the previous one.
+        .task(id: text) {
+            remaining = lifetime
+            while remaining > 0 {
+                try? await Task.sleep(nanoseconds: UInt64(tick * 1_000_000_000))
+                if Task.isCancelled { return }
+                if !isHovered { remaining -= tick }
+            }
+            dismiss()
+        }
+    }
+
+    private func dismiss() {
+        withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) { onDismiss() }
     }
 }
 
