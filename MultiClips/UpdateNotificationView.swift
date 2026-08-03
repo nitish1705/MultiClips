@@ -17,9 +17,16 @@ struct UpdateBannerView: View {
                         Text("New Version Available!")
                             .font(.headline)
                             .fontWeight(.bold)
-                        Text("MultiClips \(release.tagName) is now available. (Installed: v\(updateManager.currentVersion))")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+
+                        if let remoteInfo = updateManager.latestVersionInfo {
+                            Text("MultiClips \(remoteInfo.displayString) is available. (Installed: \(updateManager.currentVersionInfo.displayString))")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text("MultiClips \(release.tagName) is available. (Installed: \(updateManager.currentVersionInfo.displayString))")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
                     }
 
                     Spacer()
@@ -123,7 +130,7 @@ struct UpdateBannerView: View {
                 Image(systemName: "checkmark.seal.fill")
                     .foregroundStyle(.green)
                     .font(.title3)
-                Text("MultiClips is up to date (v\(updateManager.currentVersion))")
+                Text("MultiClips is up to date (\(updateManager.currentVersionInfo.displayString))")
                     .font(.subheadline)
                     .fontWeight(.medium)
                 Spacer()

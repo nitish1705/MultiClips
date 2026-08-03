@@ -22,7 +22,7 @@ MultiClips solves this by running silently in the background. It catches everyth
 * **Smart Classification:** MultiClips automatically analyzes what you copy and categorizes it into smart folders: **Texts**, **Images**, **Media**, **Documents**, **Files**, and **Links**. 
 * **Intelligent Duplicate Detection:** If you copy the same text or link twice, MultiClips won't clutter your history with duplicates. It recognizes the exact match and simply bumps the existing entry to the very top of your list.
 * **Rich Image Support:** Fully supports macOS screenshots (`⌘ + ⇧ + 4`), images copied directly from web browsers, and raw image files (JPG, PNG, HEIC) copied from Finder. All images display with beautiful, native thumbnail previews.
-* **Custom Themes 🎨:** Personalize your clipboard experience. MultiClips includes multiple theme customizations and accent color options to match your exact desktop setup.
+* **Built-In Auto-Updater 🔄:** Never miss an update. MultiClips automatically checks for new releases on launch, previews changelogs, and updates itself in 1 click without requiring manual DMG downloads. Learn more in the [Auto-Updater Guide](UPDATER_GUIDE.md).
 * **Uncompromising Privacy:** Your data is yours. All clipboard data stays **strictly on your device** and is stored locally using Apple's secure SwiftData framework. There are no cloud servers, no analytics, and no tracking of any kind.
 * **Native macOS Feel:** Built from the ground up with SwiftUI. MultiClips features proper dark mode support, system fonts, and native material backgrounds that make it feel like an official Apple app.
 

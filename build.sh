@@ -12,9 +12,11 @@ RELEASE_APP_PATH="$DERIVED_DATA_PATH/Build/Products/Release/$APP_NAME.app"
 DMG_STAGING_PATH="$BUILD_ROOT/dmg-staging"
 DMG_OUTPUT_PATH="$BUILD_ROOT/$APP_NAME-local.dmg"
 
-if [[ ! -f "$PROJECT_FILE/project.pbxproj" ]]; then
+PBXPROJ_PATH="$PROJECT_FILE/project.pbxproj"
+
+if [[ ! -f "$PBXPROJ_PATH" ]]; then
   echo "Project file '$PROJECT_FILE' was not found."
-  echo "Usage: ./scripts/build_dmg.sh [AppName] [SchemeName] [ProjectFile] [BuildRoot] [unsigned|signed]"
+  echo "Usage: ./build.sh [AppName] [SchemeName] [ProjectFile] [BuildRoot] [unsigned|signed]"
   exit 1
 fi
 
@@ -33,6 +35,23 @@ if ! command -v hdiutil >/dev/null 2>&1; then
   exit 1
 fi
 
+# --- Step 1: Auto-Increment Build Counter in project.pbxproj ---
+OLD_BUILD=$(grep -m 1 "CURRENT_PROJECT_VERSION" "$PBXPROJ_PATH" | tr -cd '0-9' || echo "1")
+if [[ -z "$OLD_BUILD" ]]; then
+  OLD_BUILD=1
+fi
+NEW_BUILD=$((OLD_BUILD + 1))
+
+MARKETING_VER=$(grep -m 1 "MARKETING_VERSION" "$PBXPROJ_PATH" | cut -d'=' -f2 | tr -d ' ;"' || echo "2.0.0")
+
+echo "=========================================="
+echo "Bumping Build Number: Build $OLD_BUILD -> Build $NEW_BUILD"
+echo "Marketing Version: v$MARKETING_VER"
+echo "=========================================="
+
+sed -i '' "s/CURRENT_PROJECT_VERSION = $OLD_BUILD;/CURRENT_PROJECT_VERSION = $NEW_BUILD;/g" "$PBXPROJ_PATH"
+
+# --- Step 2: Build Release Binary ---
 echo "Building Release app using scheme '$SCHEME_NAME'..."
 if [[ "$SIGN_MODE" == "unsigned" ]]; then
   xcodebuild \
@@ -57,6 +76,7 @@ if [[ ! -d "$RELEASE_APP_PATH" ]]; then
   exit 1
 fi
 
+# --- Step 3: Package DMG ---
 echo "Preparing DMG staging folder..."
 rm -rf "$DMG_STAGING_PATH"
 mkdir -p "$DMG_STAGING_PATH"
@@ -72,11 +92,18 @@ hdiutil create \
   -format UDZO \
   "$DMG_OUTPUT_PATH"
 
-ZIP_OUTPUT_PATH="$BUILD_ROOT/$APP_NAME.app.zip"
-echo "Creating Release Zip for Auto-Updater at: $ZIP_OUTPUT_PATH"
-rm -f "$ZIP_OUTPUT_PATH"
-ditto -c -k --sequesterRsrc --keepParent "$RELEASE_APP_PATH" "$ZIP_OUTPUT_PATH"
+# --- Step 4: Package Release Zip for In-App Auto-Updater ---
+ZIP_NAMED_PATH="$BUILD_ROOT/${APP_NAME}-v${MARKETING_VER}-b${NEW_BUILD}.app.zip"
+ZIP_GENERIC_PATH="$BUILD_ROOT/${APP_NAME}.app.zip"
 
-echo "Build complete."
-echo "DMG Output: $DMG_OUTPUT_PATH"
-echo "ZIP Output: $ZIP_OUTPUT_PATH"
+echo "Creating Release Zip for Auto-Updater..."
+rm -f "$ZIP_NAMED_PATH" "$ZIP_GENERIC_PATH"
+ditto -c -k --sequesterRsrc --keepParent "$RELEASE_APP_PATH" "$ZIP_GENERIC_PATH"
+cp "$ZIP_GENERIC_PATH" "$ZIP_NAMED_PATH"
+
+echo "=========================================="
+echo "🎉 Build Complete! (Build #$NEW_BUILD)"
+echo "DMG Output:   $DMG_OUTPUT_PATH"
+echo "ZIP Output:   $ZIP_GENERIC_PATH"
+echo "Named Zip:    $ZIP_NAMED_PATH"
+echo "=========================================="
