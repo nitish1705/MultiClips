@@ -185,9 +185,19 @@ struct ContentView: View {
                         }
                         .buttonStyle(.plain)
                         .listRowBackground(sidebarRowBackground(for: "about:versions"))
-
-                        CheckForUpdatesButton(activeTheme: activeTheme)
                     }
+                }
+                // Check for Updates sits below the List, not inside it — inside, List styled it
+                // as a navigation row rather than a button.
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    VStack(spacing: 0) {
+                        Divider()
+                        CheckForUpdatesButton(activeTheme: activeTheme)
+                            .padding(.horizontal, 12)
+                            .padding(.top, 10)
+                            .padding(.bottom, 12)
+                    }
+                    .background(.bar)
                 }
                 .navigationTitle("MultiClips")
                 .tint(activeTheme.color)

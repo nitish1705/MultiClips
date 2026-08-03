@@ -2,7 +2,6 @@ import SwiftUI
 
 struct UpdateBannerView: View {
     @ObservedObject var updateManager = UpdateManager.shared
-    @Environment(\.colorScheme) var colorScheme
     let activeTheme: ThemeOption
 
     /// GitHub release bodies are block markdown, but SwiftUI's `Text` only understands the
@@ -26,59 +25,76 @@ struct UpdateBannerView: View {
         )) ?? AttributedString(flattened)
     }
 
+    /// Small mono chip, matching the build chip on the Version History release cards.
+    @ViewBuilder
+    private func versionChip(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 11, design: .monospaced))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 2)
+            .background(RoundedRectangle(cornerRadius: 5).fill(.quaternary))
+    }
+
     var body: some View {
-        if updateManager.updateAvailable, let release = updateManager.latestRelease {
+        if updateManager.updateAvailable, !updateManager.bannerDismissed,
+           let release = updateManager.latestRelease {
             VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 10) {
+                HStack(alignment: .top, spacing: 10) {
                     Image(systemName: "sparkles")
-                        .font(.title2)
+                        .font(.system(size: 12))
                         .foregroundStyle(activeTheme.color)
+                        .frame(width: 22, height: 22)
+                        .background(
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .fill(activeTheme.color.opacity(0.20))
+                        )
 
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("New Version Available!")
-                            .font(.headline)
-                            .fontWeight(.bold)
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Update available")
+                            .font(.system(size: 14, weight: .semibold))
 
-                        if let remoteInfo = updateManager.latestVersionInfo {
-                            Text("MultiClips \(remoteInfo.displayString) is available. Installed: \(updateManager.currentVersionInfo.displayString)")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        } else {
-                            Text("MultiClips \(release.tagName) is available. Installed: \(updateManager.currentVersionInfo.displayString)")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                        HStack(spacing: 6) {
+                            versionChip(updateManager.latestVersionInfo?.displayString ?? release.tagName)
+                            Image(systemName: "arrow.left")
+                                .font(.system(size: 9))
+                                .foregroundStyle(.tertiary)
+                            versionChip(updateManager.currentVersionInfo.displayString)
                         }
                     }
 
                     Spacer()
 
                     Button {
-                        updateManager.updateAvailable = false
+                        updateManager.bannerDismissed = true
                     } label: {
-                        Image(systemName: "xmark.circle.fill")
+                        Image(systemName: "xmark")
+                            .font(.system(size: 10, weight: .semibold))
                             .foregroundStyle(.secondary)
-                            .font(.title3)
+                            .padding(5)
+                            .background(Circle().fill(.quaternary))
                     }
                     .buttonStyle(.plain)
                 }
 
                 if let bodyText = release.body, !bodyText.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Release Highlights:")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("RELEASE HIGHLIGHTS")
+                            .font(.system(size: 10, weight: .semibold))
+                            .tracking(1.2)
+                            .foregroundStyle(.tertiary)
 
                         ScrollView {
                             Text(renderedReleaseNotes(bodyText))
-                                .font(.callout)
+                                .font(.system(size: 12))
                                 .textSelection(.enabled)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(8)
+                                .padding(10)
                         }
                         .frame(maxHeight: 100)
-                        .background(Color.primary.opacity(0.04))
-                        .cornerRadius(6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous).fill(.quaternary)
+                        )
                     }
                 }
 
@@ -106,26 +122,25 @@ struct UpdateBannerView: View {
                             .foregroundStyle(activeTheme.color)
                     }
                 } else {
-                    HStack(spacing: 12) {
+                    HStack(spacing: 8) {
                         Button {
                             updateManager.downloadAndInstallUpdate()
                         } label: {
-                            HStack {
+                            HStack(spacing: 5) {
                                 Image(systemName: "arrow.down.circle.fill")
                                 Text("Update & Relaunch")
                             }
-                            .fontWeight(.bold)
-                            .padding(.vertical, 6)
-                            .padding(.horizontal, 16)
+                            .fontWeight(.medium)
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(activeTheme.color)
 
                         Button("Later") {
-                            updateManager.updateAvailable = false
+                            updateManager.bannerDismissed = true
                         }
                         .buttonStyle(.bordered)
                     }
+                    .controlSize(.small)
                 }
 
                 if let error = updateManager.errorMessage {
@@ -135,43 +150,89 @@ struct UpdateBannerView: View {
                 }
             }
             .padding(14)
+            // Same treatment as the "Latest" release card: tinted fill, 1pt accent stroke,
+            // 2pt gradient top edge. Replaces a hardcoded black/white fill, which was the last
+            // place in the app still branching on colorScheme.
             .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(colorScheme == .dark ? Color.black.opacity(0.4) : Color.white.opacity(0.9))
-                    .shadow(color: activeTheme.color.opacity(0.2), radius: 8, x: 0, y: 3)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(activeTheme.color.opacity(0.07))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(activeTheme.color.opacity(0.4), lineWidth: 1.5)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(activeTheme.color.opacity(0.28), lineWidth: 1)
             )
-            .padding(.horizontal)
-            .padding(.top, 8)
+            .overlay(alignment: .top) {
+                LinearGradient(
+                    colors: [activeTheme.color, activeTheme.color.opacity(0)],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .frame(height: 2)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(.regularMaterial)
+            .overlay(alignment: .bottom) { Divider() }
             .transition(.move(edge: .top).combined(with: .opacity))
         } else if updateManager.upToDateMessageShown {
-            HStack(spacing: 10) {
-                Image(systemName: "checkmark.seal.fill")
-                    .foregroundStyle(.green)
-                    .font(.title3)
-                Text("MultiClips is up to date — \(updateManager.currentVersionInfo.displayString)")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                Spacer()
-                Button {
-                    updateManager.upToDateMessageShown = false
-                } label: {
-                    Image(systemName: "xmark")
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
+            // Green stays: this is semantic success, not theming.
+            statusStrip(
+                icon: "checkmark.seal.fill",
+                tint: .green,
+                text: "MultiClips is up to date — \(updateManager.currentVersionInfo.displayString)"
+            ) {
+                updateManager.upToDateMessageShown = false
             }
-            .padding(.vertical, 8)
-            .padding(.horizontal, 12)
-            .background(Color.green.opacity(0.12))
-            .cornerRadius(8)
-            .padding(.horizontal)
-            .padding(.top, 4)
-            .transition(.opacity)
+        } else if let error = updateManager.errorMessage {
+            statusStrip(
+                icon: "exclamationmark.triangle.fill",
+                tint: .orange,
+                text: error
+            ) {
+                updateManager.errorMessage = nil
+            }
         }
+    }
+
+    /// Shared shell for the up-to-date and error strips, so both match the banner's scale.
+    @ViewBuilder
+    private func statusStrip(
+        icon: String,
+        tint: Color,
+        text: String,
+        onDismiss: @escaping () -> Void
+    ) -> some View {
+        HStack(spacing: 9) {
+            Image(systemName: icon)
+                .font(.system(size: 12))
+                .foregroundStyle(tint)
+            Text(text)
+                .font(.system(size: 12.5))
+            Spacer()
+            Button(action: onDismiss) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(5)
+                    .background(Circle().fill(.quaternary))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous).fill(tint.opacity(0.12))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(tint.opacity(0.28), lineWidth: 1)
+        )
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(.regularMaterial)
+        .overlay(alignment: .bottom) { Divider() }
+        .transition(.opacity)
     }
 }
 
@@ -180,20 +241,35 @@ struct CheckForUpdatesButton: View {
     let activeTheme: ThemeOption
 
     var body: some View {
-        Button {
-            updateManager.checkForUpdates(isManualCheck: true)
-        } label: {
-            HStack(spacing: 6) {
-                if updateManager.isChecking {
-                    ProgressView()
-                        .scaleEffect(0.6)
-                        .frame(width: 14, height: 14)
-                } else {
-                    Image(systemName: "arrow.clockwise.circle.fill")
+        VStack(spacing: 5) {
+            Button {
+                // Manual checks ignore the 5-minute gate on purpose.
+                updateManager.checkForUpdates(isManualCheck: true)
+            } label: {
+                HStack(spacing: 6) {
+                    if updateManager.isChecking {
+                        ProgressView()
+                            .scaleEffect(0.5)
+                            .frame(width: 14, height: 14)
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    Text(updateManager.isChecking ? "Checking…" : "Check for Updates")
                 }
-                Text(updateManager.isChecking ? "Checking..." : "Check for Updates")
+                .frame(maxWidth: .infinity)
+            }
+            // Explicit style: without one this inherits its container, which is why it looked
+            // like a sidebar row when it lived inside the List.
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+            .tint(activeTheme.color)
+            .disabled(updateManager.isChecking || updateManager.isDownloading)
+
+            if let last = updateManager.lastUpdateCheckAt {
+                Text("Checked \(relativeClipTime(from: last))")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
             }
         }
-        .disabled(updateManager.isChecking || updateManager.isDownloading)
     }
 }

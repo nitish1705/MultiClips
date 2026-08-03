@@ -37,9 +37,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.checkPasteboard()
         }
 
-        // Background auto-update check on startup
+        // Background auto-update check on startup, gated on the 5-minute staleness window so
+        // relaunching twice in quick succession does not re-hit the API.
         DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-            UpdateManager.shared.checkForUpdates(isManualCheck: false)
+            UpdateManager.shared.checkForUpdatesIfStale()
         }
     }
 
@@ -256,6 +257,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func showMainWindow() {
         NSApplication.shared.activate(ignoringOtherApps: true)
+
+        // Single funnel for every way the window opens — hotkey, dock reopen, menu bar Open.
+        // Re-shows a dismissed banner, and checks only if the last check is over 5 minutes old.
+        UpdateManager.shared.checkForUpdatesIfStale()
 
         for window in NSApplication.shared.windows {
             if window.canBecomeMain {
