@@ -306,7 +306,13 @@ struct ClipGridView: View {
     @State private var duplicateGroups: [[Item]] = []
     @State private var selectedDateRange: (Date, Date)? = nil
     @State private var selectedTypes: Set<ClipType> = Set(ClipType.allCases)
+    /// Measured from the content pane so the toolbar filters can drop their labels when the
+    /// window is too narrow to carry them. macOS has no useful size class to read instead.
+    @State private var paneWidth: CGFloat = 0
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
+
+    /// Seven filters plus Find Duplicates only fit with labels on a wide window.
+    private var showsFilterLabels: Bool { paneWidth >= 980 }
 
     private var activeTheme: ThemeOption {
         ThemeOption(rawValue: selectedThemeRaw) ?? .orange
@@ -389,6 +395,13 @@ struct ClipGridView: View {
             )
         )
         .background(Color(nsColor: .windowBackgroundColor))
+        .background(
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear { paneWidth = geo.size.width }
+                    .onChange(of: geo.size.width) { _, newValue in paneWidth = newValue }
+            }
+        )
         .navigationTitle(title)
         .searchable(text: $searchText, prompt: "Search clips")
         .toolbar {
@@ -396,24 +409,32 @@ struct ClipGridView: View {
             // control floating between the title and the search field. .primaryAction puts
             // it on the trailing edge, grouped with search where it belongs.
             ToolbarItemGroup(placement: .primaryAction) {
-                Menu {
-                    Section("Type Filter") {
-                        ForEach(ClipType.allCases, id: \.self) { type in
-                            Toggle(isOn: Binding(
-                                get: { selectedTypes.contains(type) },
-                                set: { if $0 { selectedTypes.insert(type) } else { selectedTypes.remove(type) } }
-                            )) {
-                                Label(type.rawValue, systemImage: iconForType(type))
-                            }
+                // Inline toggles rather than a dropdown: the active filters are readable at a
+                // glance instead of being hidden a click away. Labels drop out on a narrow
+                // window; .help keeps the name reachable as a hover tooltip either way.
+                ForEach(ClipType.allCases, id: \.self) { type in
+                    Toggle(isOn: Binding(
+                        get: { selectedTypes.contains(type) },
+                        set: { if $0 { selectedTypes.insert(type) } else { selectedTypes.remove(type) } }
+                    )) {
+                        if showsFilterLabels {
+                            Label(type.rawValue, systemImage: iconForType(type))
+                        } else {
+                            Image(systemName: iconForType(type))
                         }
                     }
-                    Divider()
-                    Button(action: detectDuplicates) {
-                        Label("Find Duplicates", systemImage: "doc.on.doc")
-                    }
-                } label: {
-                    Label("Filters", systemImage: "slider.horizontal.3")
+                    .toggleStyle(.button)
+                    .help(type.rawValue)
                 }
+
+                Button(action: detectDuplicates) {
+                    if showsFilterLabels {
+                        Label("Find Duplicates", systemImage: "doc.on.doc")
+                    } else {
+                        Image(systemName: "doc.on.doc")
+                    }
+                }
+                .help("Find Duplicates")
             }
         }
     }
