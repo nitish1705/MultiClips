@@ -112,19 +112,26 @@ struct ContentView: View {
                         .buttonStyle(.plain)
                         .listRowBackground(sidebarRowBackground(for: "settings:general"))
 
-                        Picker("Theme", selection: $selectedThemeRaw) {
+                        // Icon-bearing labels and .switch toggles so text starts at the same
+                        // x as the rest of the sidebar. A bare Picker label and the default
+                        // checkbox style both put their control first, breaking the column.
+                        Picker(selection: $selectedThemeRaw) {
                             ForEach(ThemeOption.allCases) { theme in
                                 Text(theme.title).tag(theme.rawValue)
                             }
+                        } label: {
+                            Label("Theme", systemImage: "paintpalette")
                         }
 
                         Toggle(isOn: $isICloudSyncEnabled) {
                             Label("iCloud Sync", systemImage: "icloud")
                         }
-                        
+                        .toggleStyle(.switch)
+
                         Toggle(isOn: $launchAtLogin) {
                             Label("Launch at Login", systemImage: "arrow.clockwise")
                         }
+                        .toggleStyle(.switch)
                         .onChange(of: launchAtLogin) {oldValue, newValue in
                             if newValue {
                                 LoginItemManager.enable()
@@ -136,9 +143,16 @@ struct ContentView: View {
                             }
                         }
 
+                        // Same shape as every other sidebar row: plain style, full-width
+                        // leading label. The default button style renders bordered and
+                        // centred, which is why this one sat out of line with the rest.
                         Button(role: .destructive) { showDeleteAllAlert = true } label: {
-                            Label("Clear History", systemImage: "trash").foregroundColor(.red)
+                            Label("Clear History", systemImage: "trash")
+                                .foregroundStyle(.red)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
                         }
+                        .buttonStyle(.plain)
                         .alert("Clear All History?", isPresented: $showDeleteAllAlert) {
                             Button("Cancel", role: .cancel) {}
                             Button("Delete All", role: .destructive) { deleteAllClips() }
@@ -710,13 +724,21 @@ struct ClipCard: View {
                 Text(relativeTime(for: clip.copiedDate)).font(.caption2).foregroundStyle(.tertiary)
             }
 
+            // Every clip type gets the same content block, sized to four lines of text.
+            // Images are clipped into it rather than dictating the card's dimensions --
+            // .frame(height:) alone left width unconstrained, so a wide image stretched
+            // its whole grid column and made the cards uneven.
             Group {
                 switch clip.type {
                 case .Texts, .Links:
                     Text(clip.textCopied ?? "Empty").lineLimit(4).font(.callout)
                 case .Images:
                     if let img = cachedImage {
-                        Image(nsImage: img).resizable().scaledToFill().frame(height: 60).clipped().cornerRadius(6)
+                        Image(nsImage: img)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
                     } else {
                         Text("Image unavailable").foregroundStyle(.secondary)
                     }
@@ -726,6 +748,8 @@ struct ClipCard: View {
                     Text("Unknown Clip").font(.callout)
                 }
             }
+            .frame(maxWidth: .infinity, minHeight: 72, maxHeight: 72, alignment: .topLeading)
+            .clipped()
 
             if let note = clip.note, !note.isEmpty {
                 Text(note)
@@ -748,7 +772,9 @@ struct ClipCard: View {
             }
         }
         .padding(12)
-        .frame(minHeight: 120)
+        // Fixed, not minimum: cards with and without a note must match, and the trailing
+        // Spacer(minLength: 0) absorbs the difference so the footer stays pinned.
+        .frame(maxWidth: .infinity, minHeight: 172, maxHeight: 172)
         .background(.background)
         .cornerRadius(12)
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.06), lineWidth: 1))

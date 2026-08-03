@@ -5,6 +5,27 @@ struct UpdateBannerView: View {
     @Environment(\.colorScheme) var colorScheme
     let activeTheme: ThemeOption
 
+    /// GitHub release bodies are block markdown, but SwiftUI's `Text` only understands the
+    /// inline subset — headings and list markers would render as literal "###" and "-".
+    /// Flatten those to plain text first, then let AttributedString handle **bold**, `code`
+    /// and links. Falls back to the raw string if the markdown fails to parse.
+    private func renderedReleaseNotes(_ raw: String) -> AttributedString {
+        let flattened = raw
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map { line -> String in
+                var s = String(line)
+                s = s.replacingOccurrences(of: #"^\s*#{1,6}\s+"#, with: "", options: .regularExpression)
+                s = s.replacingOccurrences(of: #"^(\s*)[-*+]\s+"#, with: "$1• ", options: .regularExpression)
+                return s
+            }
+            .joined(separator: "\n")
+
+        return (try? AttributedString(
+            markdown: flattened,
+            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        )) ?? AttributedString(flattened)
+    }
+
     var body: some View {
         if updateManager.updateAvailable, let release = updateManager.latestRelease {
             VStack(alignment: .leading, spacing: 12) {
@@ -49,8 +70,9 @@ struct UpdateBannerView: View {
                             .foregroundStyle(.secondary)
 
                         ScrollView {
-                            Text(bodyText)
+                            Text(renderedReleaseNotes(bodyText))
                                 .font(.callout)
+                                .textSelection(.enabled)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(8)
                         }
