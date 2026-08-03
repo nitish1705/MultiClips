@@ -23,10 +23,6 @@ struct GitHubRelease: Codable, Identifiable {
         case publishedAt = "published_at"
         case assets
     }
-
-    var cleanVersion: String {
-        tagName.trimmingCharacters(in: CharacterSet(charactersIn: "vV"))
-    }
 }
 
 struct GitHubAsset: Codable, Identifiable {
@@ -43,6 +39,18 @@ struct GitHubAsset: Codable, Identifiable {
     }
 }
 
+// MARK: - Version & Build Info Helper
+
+struct AppVersionInfo: Equatable {
+    let versionComponents: [Int]
+    let buildNumber: Int
+    let rawVersionString: String
+
+    var displayString: String {
+        "v\(rawVersionString) (Build \(buildNumber))"
+    }
+}
+
 // MARK: - Update Manager
 
 @MainActor
@@ -55,6 +63,7 @@ final class UpdateManager: NSObject, ObservableObject, URLSessionDownloadDelegat
     @Published var isChecking: Bool = false
     @Published var updateAvailable: Bool = false
     @Published var latestRelease: GitHubRelease? = nil
+    @Published var latestVersionInfo: AppVersionInfo? = nil
     @Published var downloadProgress: Double = 0.0
     @Published var isDownloading: Bool = false
     @Published var isInstalling: Bool = false
@@ -62,10 +71,22 @@ final class UpdateManager: NSObject, ObservableObject, URLSessionDownloadDelegat
     @Published var upToDateMessageShown: Bool = false
 
     private var downloadTask: URLSessionDownloadTask?
-    private var downloadObservation: NSKeyValueObservation?
 
     var currentVersion: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2.0.0"
+    }
+
+    var currentBuildNumber: Int {
+        let buildStr = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+        return Int(buildStr.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 1
+    }
+
+    var currentVersionInfo: AppVersionInfo {
+        AppVersionInfo(
+            versionComponents: normalizeVersion(currentVersion),
+            buildNumber: currentBuildNumber,
+            rawVersionString: currentVersion
+        )
     }
 
     // MARK: - Check for Updates
@@ -100,7 +121,6 @@ final class UpdateManager: NSObject, ObservableObject, URLSessionDownloadDelegat
                 }
 
                 if httpResponse.statusCode == 404 {
-                    // No releases published yet on GitHub
                     self.isChecking = false
                     if isManualCheck {
                         self.upToDateMessageShown = true
@@ -113,17 +133,22 @@ final class UpdateManager: NSObject, ObservableObject, URLSessionDownloadDelegat
                 }
 
                 let release = try JSONDecoder().decode(GitHubRelease.self, from: data)
-                self.latestRelease = release
+                let remoteInfo = self.parseReleaseVersion(tag: release.tagName, body: release.body)
 
-                let isNewer = self.compareVersions(latest: release.cleanVersion, current: self.currentVersion) == .orderedDescending
+                self.latestRelease = release
+                self.latestVersionInfo = remoteInfo
+
+                let isNewer = self.isUpdateNewer(remote: remoteInfo, local: self.currentVersionInfo)
 
                 self.isChecking = false
                 if isNewer {
                     self.updateAvailable = true
                     self.upToDateMessageShown = false
-                } else if isManualCheck {
+                } else {
                     self.updateAvailable = false
-                    self.upToDateMessageShown = true
+                    if isManualCheck {
+                        self.upToDateMessageShown = true
+                    }
                 }
             } catch {
                 self.isChecking = false
@@ -139,9 +164,7 @@ final class UpdateManager: NSObject, ObservableObject, URLSessionDownloadDelegat
     func downloadAndInstallUpdate() {
         guard let release = latestRelease else { return }
 
-        // Find zip asset first, or dmg asset
         guard let zipAsset = release.assets.first(where: { $0.name.lowercased().hasSuffix(".zip") }) ?? release.assets.first(where: { $0.name.lowercased().hasSuffix(".dmg") }) else {
-            // If no binary asset found in release, open release web page in browser
             if let webURL = URL(string: release.htmlUrl) {
                 NSWorkspace.shared.open(webURL)
             }
@@ -181,7 +204,6 @@ final class UpdateManager: NSObject, ObservableObject, URLSessionDownloadDelegat
     }
 
     nonisolated func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
-        // Move downloaded file to a stable temp directory
         let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         do {
             try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
@@ -218,14 +240,12 @@ final class UpdateManager: NSObject, ObservableObject, URLSessionDownloadDelegat
         do {
             try FileManager.default.createDirectory(at: extractedAppDir, withIntermediateDirectories: true)
 
-            // Extract zip via ditto
             let unzipProcess = Process()
             unzipProcess.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
             unzipProcess.arguments = ["-x", "-k", packageURL.path, extractedAppDir.path]
             try unzipProcess.run()
             unzipProcess.waitUntilExit()
 
-            // Find .app inside extracted folder
             let fileManager = FileManager.default
             let contents = try fileManager.contentsOfDirectory(at: extractedAppDir, includingPropertiesForKeys: nil)
             guard let appBundleURL = contents.first(where: { $0.pathExtension == "app" }) else {
@@ -237,7 +257,6 @@ final class UpdateManager: NSObject, ObservableObject, URLSessionDownloadDelegat
             let currentBundlePath = Bundle.main.bundlePath
             let scriptPath = tempDir.appendingPathComponent("relaunch.sh").path
 
-            // Relaunch helper script
             let scriptContent = """
             #!/bin/bash
             sleep 1
@@ -249,20 +268,17 @@ final class UpdateManager: NSObject, ObservableObject, URLSessionDownloadDelegat
 
             try scriptContent.write(toFile: scriptPath, atomically: true, encoding: .utf8)
 
-            // Make script executable
             let chmodProcess = Process()
             chmodProcess.executableURL = URL(fileURLWithPath: "/bin/chmod")
             chmodProcess.arguments = ["+x", scriptPath]
             try chmodProcess.run()
             chmodProcess.waitUntilExit()
 
-            // Launch script in background
             let relaunchProcess = Process()
             relaunchProcess.executableURL = URL(fileURLWithPath: "/bin/bash")
             relaunchProcess.arguments = [scriptPath]
             try relaunchProcess.run()
 
-            // Exit current app instance
             NSApp.terminate(nil)
 
         } catch {
@@ -271,25 +287,70 @@ final class UpdateManager: NSObject, ObservableObject, URLSessionDownloadDelegat
         }
     }
 
-    // MARK: - Version Helper
+    // MARK: - Version & Build Parsing Logic
 
-    func compareVersions(latest: String, current: String) -> ComparisonResult {
-        let latestComponents = latest.split(separator: ".").compactMap { Int($0) }
-        let currentComponents = current.split(separator: ".").compactMap { Int($0) }
+    func parseReleaseVersion(tag: String, body: String?) -> AppVersionInfo {
+        let cleanTag = tag.trimmingCharacters(in: CharacterSet(charactersIn: "vV "))
 
-        let maxLength = max(latestComponents.count, currentComponents.count)
+        var versionStr = cleanTag
+        var buildNum = 1
+        var buildFound = false
 
-        for i in 0..<maxLength {
-            let lVal = i < latestComponents.count ? latestComponents[i] : 0
-            let cVal = i < currentComponents.count ? currentComponents[i] : 0
+        let pattern = #"(?i)^([0-9\.]+)[-_\+](?:b|build)?\s*([0-9]+)$"#
+        if let regex = try? NSRegularExpression(pattern: pattern),
+           let match = regex.firstMatch(in: cleanTag, range: NSRange(cleanTag.startIndex..., in: cleanTag)) {
 
-            if lVal > cVal {
-                return .orderedDescending
-            } else if lVal < cVal {
-                return .orderedAscending
+            if let vRange = Range(match.range(at: 1), in: cleanTag) {
+                versionStr = String(cleanTag[vRange])
+            }
+            if let bRange = Range(match.range(at: 2), in: cleanTag), let bVal = Int(cleanTag[bRange]) {
+                buildNum = bVal
+                buildFound = true
             }
         }
 
-        return .orderedSame
+        if !buildFound, let bodyText = body {
+            let bodyPattern = #"(?i)build\s*(?:number|num|:)\s*([0-9]+)"#
+            if let bodyRegex = try? NSRegularExpression(pattern: bodyPattern),
+               let match = bodyRegex.firstMatch(in: bodyText, range: NSRange(bodyText.startIndex..., in: bodyText)),
+               let bRange = Range(match.range(at: 1), in: bodyText),
+               let bVal = Int(bodyText[bRange]) {
+                buildNum = bVal
+            }
+        }
+
+        return AppVersionInfo(
+            versionComponents: normalizeVersion(versionStr),
+            buildNumber: buildNum,
+            rawVersionString: versionStr
+        )
+    }
+
+    func normalizeVersion(_ versionString: String) -> [Int] {
+        var cleaned = versionString.trimmingCharacters(in: .whitespacesAndNewlines)
+        cleaned = cleaned.trimmingCharacters(in: CharacterSet(charactersIn: "."))
+
+        let components = cleaned.split(separator: ".").compactMap { Int($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
+        var result = components
+        while result.count < 3 {
+            result.append(0)
+        }
+        return result
+    }
+
+    func isUpdateNewer(remote: AppVersionInfo, local: AppVersionInfo) -> Bool {
+        let maxCount = max(remote.versionComponents.count, local.versionComponents.count)
+        for i in 0..<maxCount {
+            let rVal = i < remote.versionComponents.count ? remote.versionComponents[i] : 0
+            let lVal = i < local.versionComponents.count ? local.versionComponents[i] : 0
+
+            if rVal > lVal {
+                return true
+            } else if rVal < lVal {
+                return false
+            }
+        }
+
+        return remote.buildNumber > local.buildNumber
     }
 }
