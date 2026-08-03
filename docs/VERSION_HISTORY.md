@@ -1,6 +1,20 @@
 # 📜 MultiClips Version History
 
-## v2.1 Build 9 (Latest) - August 3, 2026
+## v2.2 Build 10 (Latest) - August 3, 2026
+
+### 🎨 UI Redesign
+- **Redesigned menu bar dropdown**: Added hover-revealed action buttons and a compact icon footer
+- **Release cards for Version History**: Formatted releases into clean visual cards with two-column responsive highlights
+- **Redesigned Credits View**: Monogram hero header, profile links, and live app facts grid
+
+### 🐛 Bug Fixes & Auto-Updater
+- **Sandbox Network Permissions**: Added `com.apple.security.network.client` entitlements to allow outgoing release requests
+- **Fixed Update Banner Notifications**: Ensured MainActor thread dispatching and UI animation for update banners
+- **Fixed Window Transparency**: Resolved see-through desktop tinting across themes
+
+---
+
+## v2.1 Build 9 - August 3, 2026
 
 ### 🎨 Menu Bar Redesign
 - **Hover-revealed actions**: Star and the actions button now stay hidden until a row is hovered, so the resting list is just content. A starred clip keeps its star visible at rest

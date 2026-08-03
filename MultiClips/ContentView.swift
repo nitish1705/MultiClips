@@ -1414,8 +1414,18 @@ struct VersionHistoryView: View {
     /// on every render and break ForEach identity.
     private let releases: [AppRelease] = [
         AppRelease(
-            version: "v2.1",
+            version: "v2.2",
             build: "Build \(UpdateManager.shared.currentBuildNumber)",
+            date: "3 Aug 2026",
+            highlights: [
+                "Redesigned UI: modern menu bar dropdown, release cards for Version History, and redesigned Credits view",
+                "Fixed window background transparency across dark/light themes",
+                "Fixed update banner notifications and network sandbox permissions"
+            ]
+        ),
+        AppRelease(
+            version: "v2.1",
+            build: "Build 9",
             date: "3 Aug 2026",
             highlights: [
                 "Redesigned menu bar with actions that appear on hover",
