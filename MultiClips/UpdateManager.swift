@@ -112,7 +112,7 @@ final class UpdateManager: NSObject, ObservableObject, URLSessionDownloadDelegat
         request.setValue("MultiClips-App/\(currentVersion)", forHTTPHeaderField: "User-Agent")
         request.timeoutInterval = 15.0
 
-        Task {
+        Task { @MainActor in
             do {
                 let (data, response) = try await URLSession.shared.data(for: request)
 

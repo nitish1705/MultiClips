@@ -173,6 +173,9 @@ struct ContentView: View {
                         .listRowBackground(sidebarRowBackground(for: "about:versions"))
 
                         CheckForUpdatesButton(activeTheme: activeTheme)
+                            .foregroundStyle(sidebarRowForeground(for: "about:updates"))
+                            .tint(sidebarRowForeground(for: "about:updates"))
+                            .listRowBackground(sidebarRowBackground(for: "about:updates"))
                     }
                 }
                 .navigationTitle("MultiClips")
@@ -1192,6 +1195,7 @@ struct MenuBarClipActionsSheet: View {
 // MARK: - Credits View
 
 struct CreditsView: View {
+    @ObservedObject private var updateManager = UpdateManager.shared
     @AppStorage("selectedTheme") private var selectedThemeRaw = ThemeOption.orange.rawValue
 
     private var activeTheme: ThemeOption {
@@ -1226,6 +1230,8 @@ struct CreditsView: View {
                         systemImage: "person.2.fill",
                         destination: linkedInURL
                     )
+
+                    updatesRow
                 }
 
                 aboutBlock
@@ -1319,36 +1325,76 @@ struct CreditsView: View {
                 Image(systemName: systemImage)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(activeTheme.color)
-                    .frame(width: 28, height: 28)
-                    .background(Circle().fill(activeTheme.color.opacity(0.14)))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.callout.weight(.semibold))
+                        .font(.system(size: 12.5, weight: .medium))
+                        .foregroundStyle(.primary)
+
                     Text(subtitle)
-                        .font(.caption)
+                        .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }
 
                 Spacer()
 
                 Image(systemName: "arrow.up.right")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(activeTheme.color)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.tertiary)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(activeTheme.color.opacity(0.10))
-            )
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .background(Color(nsColor: .windowBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(activeTheme.color.opacity(0.18), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color.primary.opacity(0.09), lineWidth: 1)
             )
-            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+
+    private var updatesRow: some View {
+        Button {
+            updateManager.checkForUpdates(isManualCheck: true)
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "arrow.clockwise.circle.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(activeTheme.color)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(updateManager.isChecking ? "Checking for Updates..." : "Check for Updates")
+                        .font(.system(size: 12.5, weight: .medium))
+                        .foregroundStyle(.primary)
+
+                    Text(updateManager.updateAvailable ? "New version available!" : "You are on the latest build (\(versionLabel))")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                if updateManager.isChecking {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                } else {
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .background(Color(nsColor: .windowBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color.primary.opacity(0.09), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(updateManager.isChecking || updateManager.isDownloading)
     }
 }
 

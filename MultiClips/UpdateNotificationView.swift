@@ -149,6 +149,30 @@ struct UpdateBannerView: View {
             .padding(.horizontal)
             .padding(.top, 4)
             .transition(.opacity)
+        } else if let error = updateManager.errorMessage {
+            HStack(spacing: 10) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                    .font(.title3)
+                Text(error)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                Spacer()
+                Button {
+                    updateManager.errorMessage = nil
+                } label: {
+                    Image(systemName: "xmark")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 12)
+            .background(Color.orange.opacity(0.12))
+            .cornerRadius(8)
+            .padding(.horizontal)
+            .padding(.top, 4)
+            .transition(.opacity)
         }
     }
 }
@@ -159,19 +183,29 @@ struct CheckForUpdatesButton: View {
 
     var body: some View {
         Button {
-            updateManager.checkForUpdates(isManualCheck: true)
-        } label: {
-            HStack(spacing: 6) {
-                if updateManager.isChecking {
-                    ProgressView()
-                        .scaleEffect(0.6)
-                        .frame(width: 14, height: 14)
-                } else {
-                    Image(systemName: "arrow.clockwise.circle.fill")
-                }
-                Text(updateManager.isChecking ? "Checking..." : "Check for Updates")
+            withAnimation {
+                updateManager.checkForUpdates(isManualCheck: true)
             }
+        } label: {
+            Label(
+                title: {
+                    Text(updateManager.isChecking ? "Checking..." : "Check for Updates")
+                },
+                icon: {
+                    if updateManager.isChecking {
+                        ProgressView()
+                            .scaleEffect(0.6)
+                            .frame(width: 16, height: 16)
+                    } else {
+                        Image(systemName: "arrow.clockwise.circle")
+                    }
+                }
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .disabled(updateManager.isChecking || updateManager.isDownloading)
     }
 }
+

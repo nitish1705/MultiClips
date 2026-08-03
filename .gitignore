@@ -37,3 +37,5 @@ fastlane/test_output/
 
 # Local performance outputs
 performance-results/
+# Added by code-review-graph
+.code-review-graph/
