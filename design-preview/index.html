@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en" data-mode="dark" data-theme="orange">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MultiClips — Menu Bar Concepts</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="backdrop" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true"></div>
+
+<header class="bar">
+  <div class="bar__brand">
+    <span class="bar__mark"></span>
+    <span class="bar__title">MultiClips</span>
+    <span class="bar__sub">menu bar / 6 concepts</span>
+  </div>
+
+  <div class="bar__controls">
+    <div class="ctl">
+      <span class="ctl__label">Theme</span>
+      <div class="swatches" id="swatches" role="radiogroup" aria-label="Accent theme">
+        <button class="sw" data-theme="orange" style="--sw:#FF9500" role="radio" aria-checked="true" title="Sunset Orange"></button>
+        <button class="sw" data-theme="blue"   style="--sw:#007AFF" role="radio" aria-checked="false" title="Ocean Blue"></button>
+        <button class="sw" data-theme="green"  style="--sw:#34C759" role="radio" aria-checked="false" title="Forest Green"></button>
+        <button class="sw" data-theme="pink"   style="--sw:#FF2D55" role="radio" aria-checked="false" title="Rose Pink"></button>
+        <button class="sw" data-theme="purple" style="--sw:#AF52DE" role="radio" aria-checked="false" title="Royal Purple"></button>
+      </div>
+    </div>
+
+    <div class="ctl">
+      <span class="ctl__label">Mode</span>
+      <div class="seg" id="modeSeg">
+        <button data-mode="light">Light</button>
+        <button data-mode="dark" class="is-on">Dark</button>
+      </div>
+    </div>
+
+    <div class="ctl">
+      <span class="ctl__label">State</span>
+      <div class="seg" id="stateSeg">
+        <button data-state="filled" class="is-on">Clips</button>
+        <button data-state="empty">Empty</button>
+      </div>
+    </div>
+
+    <div class="ctl">
+      <span class="ctl__label">View</span>
+      <select id="soloSelect" class="sel">
+        <option value="all">All concepts</option>
+      </select>
+    </div>
+  </div>
+</header>
+
+<main class="gallery" id="gallery"></main>
+
+<footer class="notes">
+  <h2 class="notes__h">Fidelity notes</h2>
+  <ul>
+    <li><b>Icons are approximations.</b> SF Symbols aren't available in a browser — these are hand-drawn SVG stand-ins. The Swift build uses the real symbol names from <code>clipIconName(for:)</code> at <code>ContentView.swift:1405</code>.</li>
+    <li><b>Materials are approximations.</b> CSS <code>backdrop-filter</code> stands in for SwiftUI <code>.regularMaterial</code>. Real vibrancy samples the live desktop and will read slightly differently.</li>
+    <li><b>Type is honest.</b> Panels use <code>-apple-system</code>, so on this Mac they render in the same SF Pro the app ships. Only the surrounding gallery chrome uses a different face.</li>
+    <li><b>Feature set is frozen.</b> Every concept shows exactly what the menu bar does today — type icon, one-line preview, note-or-timestamp, star, ellipsis sheet, three footer actions. No search, no keyboard nav, no thumbnails.</li>
+  </ul>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
