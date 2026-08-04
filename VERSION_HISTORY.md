@@ -1,6 +1,6 @@
 # 📜 MultiClips Version History
 
-## v2.3 Build 11 (Latest) - August 4, 2026
+## v2.3 Build 12 (Latest) - August 4, 2026
 
 ### ⚙️ Settings & Auto-Update Polish
 - **Streamlined Sidebar Settings**: Removed unused General Settings row and eliminated duplicate Theme selector dropdown
