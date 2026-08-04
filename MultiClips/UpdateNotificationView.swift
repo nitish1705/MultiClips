@@ -199,7 +199,7 @@ struct UpdateBannerView: View {
                 insertion: .move(edge: .top)
                     .combined(with: .opacity)
                     .combined(with: .scale(scale: 0.96, anchor: .top)),
-                removal: .move(edge: .trailing).combined(with: .opacity)
+                removal: .move(edge: .top).combined(with: .opacity)
             ))
         } else if updateManager.upToDateMessageShown {
             // Green stays: this is semantic success, not theming.
@@ -289,7 +289,7 @@ private struct ToastStrip: View {
             insertion: .move(edge: .top)
                 .combined(with: .opacity)
                 .combined(with: .scale(scale: 0.94, anchor: .top)),
-            removal: .move(edge: .trailing).combined(with: .opacity)
+            removal: .move(edge: .top).combined(with: .opacity)
         ))
         // Keyed on the message so a new toast restarts the clock instead of inheriting
         // whatever was left of the previous one.
