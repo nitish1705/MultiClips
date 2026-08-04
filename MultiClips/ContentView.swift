@@ -408,33 +408,39 @@ struct ClipGridView: View {
             // .secondaryAction lands in the centre of a macOS toolbar, leaving the filter
             // control floating between the title and the search field. .primaryAction puts
             // it on the trailing edge, grouped with search where it belongs.
+            // Find Duplicates is its own item, separated from the filters. It performs an
+            // action rather than narrowing the list, so grouping it with the type toggles
+            // made an unrelated control look like one more filter.
+            ToolbarItem(placement: .primaryAction) {
+                Button(action: detectDuplicates) {
+                    Image(systemName: "doc.on.doc")
+                }
+                .help("Find duplicate clips")
+            }
+
             ToolbarItemGroup(placement: .primaryAction) {
                 // Inline toggles rather than a dropdown: the active filters are readable at a
                 // glance instead of being hidden a click away. Labels drop out on a narrow
                 // window; .help keeps the name reachable as a hover tooltip either way.
-                ForEach(ClipType.allCases, id: \.self) { type in
-                    Toggle(isOn: Binding(
-                        get: { selectedTypes.contains(type) },
-                        set: { if $0 { selectedTypes.insert(type) } else { selectedTypes.remove(type) } }
-                    )) {
-                        if showsFilterLabels {
-                            Label(type.rawValue, systemImage: iconForType(type))
-                        } else {
-                            Image(systemName: iconForType(type))
+                ControlGroup {
+                    ForEach(ClipType.allCases, id: \.self) { type in
+                        Toggle(isOn: Binding(
+                            get: { selectedTypes.contains(type) },
+                            set: { if $0 { selectedTypes.insert(type) } else { selectedTypes.remove(type) } }
+                        )) {
+                            if showsFilterLabels {
+                                Label(type.rawValue, systemImage: iconForType(type))
+                            } else {
+                                Image(systemName: iconForType(type))
+                            }
                         }
-                    }
-                    .toggleStyle(.button)
-                    .help(type.rawValue)
-                }
-
-                Button(action: detectDuplicates) {
-                    if showsFilterLabels {
-                        Label("Find Duplicates", systemImage: "doc.on.doc")
-                    } else {
-                        Image(systemName: "doc.on.doc")
+                        .toggleStyle(.button)
+                        .help("Show \(type.rawValue.lowercased()) clips")
                     }
                 }
-                .help("Find Duplicates")
+                // Without this the selected state falls back to the system accent and stays
+                // blue in every theme -- the same bug the detail sheet's Copy button had.
+                .tint(activeTheme.color)
             }
         }
     }
