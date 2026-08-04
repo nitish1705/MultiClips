@@ -259,7 +259,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Single funnel for every way the window opens — hotkey, dock reopen, menu bar Open.
         // Re-shows a dismissed banner, and checks only if the last check is over 5 minutes old.
-        UpdateManager.shared.checkForUpdatesIfStale()
+        UpdateManager.shared.checkForUpdates()
 
         for window in NSApplication.shared.windows {
             if window.canBecomeMain {

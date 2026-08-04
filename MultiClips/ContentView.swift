@@ -633,64 +633,6 @@ struct ClipDetailSheet: View {
         }
     }
 
-    private var noteBinding: Binding<String> {
-        Binding(
-            get: { noteText },
-            set: { newValue in
-                let trimmed = String(newValue.prefix(noteLimit))
-                noteText = trimmed
-
-                let normalized = trimmed.trimmingCharacters(in: .whitespacesAndNewlines)
-                let savedNote = normalized.isEmpty ? nil : normalized
-                if clip.note != savedNote {
-                    clip.note = savedNote
-                    try? modelContext.save()
-                }
-            }
-        )
-    }
-
-    private func togglePin() {
-        clip.isPinned.toggle()
-        try? modelContext.save()
-    }
-
-    private func toggleStar() {
-        clip.isStarred.toggle()
-        try? modelContext.save()
-    }
-
-    private func keepOnlyThisClip() {
-        let descriptor = FetchDescriptor<Item>()
-        let allClips = (try? modelContext.fetch(descriptor)) ?? []
-
-        for other in allClips where other.id != clip.id {
-            if isDuplicate(other, of: clip) {
-                modelContext.delete(other)
-            }
-        }
-
-        clip.isStarred = true
-        try? modelContext.save()
-    }
-
-    private func isDuplicate(_ other: Item, of current: Item) -> Bool {
-        guard other.type == current.type else { return false }
-
-        switch current.type {
-        case .Texts, .Links:
-            return other.textCopied == current.textCopied
-        case .Images:
-            if let u1 = other.files?.standardizedFileURL, let u2 = current.files?.standardizedFileURL, u1 == u2 {
-                return true
-            }
-            return other.rawData == current.rawData
-        case .Files, .Documents, .Medias:
-            return other.files?.standardizedFileURL == current.files?.standardizedFileURL
-        case .Unknown:
-            return other.rawData == current.rawData
-        }
-    }
 
     private func copyToPasteboard() {
         NotificationCenter.default.post(name: .skipNextPasteboardChange, object: nil)
