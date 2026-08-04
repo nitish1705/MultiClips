@@ -418,10 +418,21 @@ struct ClipGridView: View {
                             get: { selectedTypes.contains(type) },
                             set: { if $0 { selectedTypes.insert(type) } else { selectedTypes.remove(type) } }
                         )) {
+                            // SF Symbols have different intrinsic widths -- "Aa" is far wider
+                            // than a document glyph -- so without a fixed box each toggle sized
+                            // to its own icon and the row read as unevenly spaced. A square
+                            // frame makes every button identical and centres the glyph in it.
                             if showsFilterLabels {
-                                Label(type.rawValue, systemImage: iconForType(type))
+                                Label {
+                                    Text(type.rawValue)
+                                } icon: {
+                                    Image(systemName: iconForType(type))
+                                        .frame(width: 16, height: 16)
+                                }
                             } else {
                                 Image(systemName: iconForType(type))
+                                    .font(.system(size: 13))
+                                    .frame(width: 18, height: 18)
                             }
                         }
                         .toggleStyle(.button)
