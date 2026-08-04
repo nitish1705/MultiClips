@@ -100,30 +100,6 @@ struct ContentView: View {
                     }
 
                     Section("Settings") {
-                        Button {
-                            selectedSidebarItem = "settings:general"
-                        } label: {
-                            Label("General Settings", systemImage: "gearshape")
-                                .foregroundStyle(sidebarRowForeground(for: "settings:general"))
-                                .tint(sidebarRowForeground(for: "settings:general"))
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .listRowBackground(sidebarRowBackground(for: "settings:general"))
-
-                        Picker("Theme", selection: $selectedThemeRaw) {
-                            ForEach(ThemeOption.allCases) { theme in
-                                Text(theme.title).tag(theme.rawValue)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .listRowBackground(sidebarRowBackground(for: "settings:general"))
-
-                        // Every settings row is laid out the same way: icon + text leading,
-                        // control trailing. A plain Toggle puts its checkbox first, which
-                        // pushed the icon and text out of the column the rest of the sidebar
-                        // shares -- hence the leading Label and a labelsHidden control.
                         Picker(selection: $selectedThemeRaw) {
                             ForEach(ThemeOption.allCases) { theme in
                                 Text(theme.title).tag(theme.rawValue)
@@ -215,9 +191,11 @@ struct ContentView: View {
                 .navigationTitle("MultiClips")
                 .tint(activeTheme.color)
             } detail: {
-                VStack(spacing: 0) {
-                    UpdateBannerView(activeTheme: activeTheme)
+                ZStack(alignment: .top) {
                     selectedDetailView
+                    UpdateBannerView(activeTheme: activeTheme)
+                        .padding(.top, 8)
+                        .zIndex(100)
                 }
             }
 
@@ -271,8 +249,6 @@ struct ContentView: View {
             ClipGridView(title: "Links", clips: clips.filter { $0.type == .Links })
         case "history:recent":
             HistoryView(clips: clips)
-        case "settings:general":
-            Text("General Settings")
         case "about:credits":
             CreditsView()
         case "about:versions":
@@ -1468,8 +1444,18 @@ struct VersionHistoryView: View {
     /// on every render and break ForEach identity.
     private let releases: [AppRelease] = [
         AppRelease(
-            version: "v2.2",
+            version: "v2.3",
             build: "Build \(UpdateManager.shared.currentBuildNumber)",
+            date: "4 Aug 2026",
+            highlights: [
+                "Streamlined settings sidebar with duplicate Theme selector and General Settings removed",
+                "Periodic background update checks every 1 hour against GitHub releases",
+                "Polished floating update notification toast overlay with auto-dismiss"
+            ]
+        ),
+        AppRelease(
+            version: "v2.2",
+            build: "Build 10",
             date: "3 Aug 2026",
             highlights: [
                 "Redesigned UI: modern menu bar dropdown, release cards for Version History, and redesigned Credits view",

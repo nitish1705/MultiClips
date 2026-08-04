@@ -51,6 +51,8 @@ struct AppVersionInfo: Equatable {
     }
 }
 
+private let kLastUpdateCheckKey = "lastUpdateCheckAt"
+
 // MARK: - Update Manager
 
 @MainActor
@@ -69,6 +71,27 @@ final class UpdateManager: NSObject, ObservableObject, URLSessionDownloadDelegat
     @Published var isInstalling: Bool = false
     @Published var errorMessage: String? = nil
     @Published var upToDateMessageShown: Bool = false
+
+    @Published private(set) var lastCheckedDate: Date? = {
+        let stored = UserDefaults.standard.double(forKey: kLastUpdateCheckKey)
+        return stored > 0 ? Date(timeIntervalSince1970: stored) : nil
+    }()
+
+    var lastCheckedFormatted: String {
+        guard let date = lastCheckedDate else {
+            return "Last checked: Never"
+        }
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        let relative = formatter.localizedString(for: date, relativeTo: Date())
+        return "Last checked: \(relative)"
+    }
+
+    private func recordCheckCompleted() {
+        let now = Date()
+        self.lastCheckedDate = now
+        UserDefaults.standard.set(now.timeIntervalSince1970, forKey: kLastUpdateCheckKey)
+    }
 
     private var downloadTask: URLSessionDownloadTask?
 
@@ -122,6 +145,7 @@ final class UpdateManager: NSObject, ObservableObject, URLSessionDownloadDelegat
 
                 if httpResponse.statusCode == 404 {
                     self.isChecking = false
+                    self.recordCheckCompleted()
                     if isManualCheck {
                         self.upToDateMessageShown = true
                     }
@@ -141,6 +165,7 @@ final class UpdateManager: NSObject, ObservableObject, URLSessionDownloadDelegat
                 let isNewer = self.isUpdateNewer(remote: remoteInfo, local: self.currentVersionInfo)
 
                 self.isChecking = false
+                self.recordCheckCompleted()
                 if isNewer {
                     self.updateAvailable = true
                     self.upToDateMessageShown = false
@@ -152,6 +177,7 @@ final class UpdateManager: NSObject, ObservableObject, URLSessionDownloadDelegat
                 }
             } catch {
                 self.isChecking = false
+                self.recordCheckCompleted()
                 if isManualCheck {
                     self.errorMessage = "Failed to check for updates: \(error.localizedDescription)"
                 }

@@ -1,6 +1,15 @@
 # 📜 MultiClips Version History
 
-## v2.1 Build 9 (Latest) - August 3, 2026
+## v2.3 Build 11 (Latest) - August 4, 2026
+
+### ⚙️ Settings & Auto-Update Polish
+- **Streamlined Sidebar Settings**: Removed unused General Settings row and eliminated duplicate Theme selector dropdown
+- **Hourly GitHub Auto-Update Checks**: Background timer now automatically checks GitHub API for new releases every 1 hour
+- **Non-Disruptive Floating Toast Overlay**: Rebuilt update banner into a sleek glassmorphic floating toast overlay with auto-dismiss after 3.5 seconds
+
+---
+
+## v2.2 Build 10 - August 3, 2026
 
 ### 🎨 Menu Bar Redesign
 - **Hover-revealed actions**: Star and the actions button now stay hidden until a row is hovered, so the resting list is just content. A starred clip keeps its star visible at rest

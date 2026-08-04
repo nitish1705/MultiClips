@@ -8,6 +8,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var lastChangeCount: Int = NSPasteboard.general.changeCount
     private var skipNextPasteboardChange = false
     private var timer: Timer?
+    private var updateCheckTimer: Timer?
     private var eventMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -40,6 +41,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Background auto-update check on startup
         DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
             UpdateManager.shared.checkForUpdates(isManualCheck: false)
+        }
+
+        // Periodic auto-update check every 1 hour (3600 seconds)
+        updateCheckTimer = Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { _ in
+            Task { @MainActor in
+                UpdateManager.shared.checkForUpdates(isManualCheck: false)
+            }
         }
     }
 
