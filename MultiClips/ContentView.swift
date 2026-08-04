@@ -408,16 +408,6 @@ struct ClipGridView: View {
             // .secondaryAction lands in the centre of a macOS toolbar, leaving the filter
             // control floating between the title and the search field. .primaryAction puts
             // it on the trailing edge, grouped with search where it belongs.
-            // Find Duplicates is its own item, separated from the filters. It performs an
-            // action rather than narrowing the list, so grouping it with the type toggles
-            // made an unrelated control look like one more filter.
-            ToolbarItem(placement: .primaryAction) {
-                Button(action: detectDuplicates) {
-                    Image(systemName: "doc.on.doc")
-                }
-                .help("Find duplicate clips")
-            }
-
             ToolbarItemGroup(placement: .primaryAction) {
                 // Inline toggles rather than a dropdown: the active filters are readable at a
                 // glance instead of being hidden a click away. Labels drop out on a narrow
