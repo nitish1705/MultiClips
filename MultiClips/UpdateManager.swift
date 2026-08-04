@@ -53,8 +53,6 @@ struct AppVersionInfo: Equatable {
 
 // MARK: - Update Manager
 
-private let kLastUpdateCheckKey = "lastUpdateCheckAt"
-
 @MainActor
 final class UpdateManager: NSObject, ObservableObject, URLSessionDownloadDelegate {
     static let shared = UpdateManager()
@@ -71,20 +69,6 @@ final class UpdateManager: NSObject, ObservableObject, URLSessionDownloadDelegat
     @Published var isInstalling: Bool = false
     @Published var errorMessage: String? = nil
     @Published var upToDateMessageShown: Bool = false
-
-    /// When the last check *completed* — success or failure. Persisted so relaunching twice in
-    /// quick succession does not re-hit the API. Published so the sidebar can show "Checked N ago".
-    /// Seeded inline rather than in an init, which NSObject + @MainActor makes awkward.
-    @Published private(set) var lastUpdateCheckAt: Date? = {
-        let stored = UserDefaults.standard.double(forKey: kLastUpdateCheckKey)
-        return stored > 0 ? Date(timeIntervalSince1970: stored) : nil
-    }()
-
-    /// Separate from `updateAvailable`, which is a fact about the world and must survive a
-    /// dismissal. This is view state: it hides the banner until the window is opened again.
-    @Published var bannerDismissed: Bool = false
-
-    private let checkInterval: TimeInterval = 5 * 60
 
     private var downloadTask: URLSessionDownloadTask?
 
@@ -107,35 +91,6 @@ final class UpdateManager: NSObject, ObservableObject, URLSessionDownloadDelegat
 
     // MARK: - Check for Updates
 
-    /// Pure, so the 5-minute rule can be tested without a clock or UserDefaults.
-    /// See `Tests/VersionLogicTests.swift`.
-    static func isCheckStale(lastCheck: Date?, now: Date, interval: TimeInterval) -> Bool {
-        guard let lastCheck else { return true }
-        let elapsed = now.timeIntervalSince(lastCheck)
-        // A negative elapsed means the stored date is in the future — clock skew, or the user
-        // moved their clock back. Treat that as fresh rather than checking on every open.
-        guard elapsed >= 0 else { return false }
-        return elapsed >= interval
-    }
-
-    /// Entry point for automatic checks. Called whenever the main window opens.
-    /// Always un-dismisses the banner, so an available update reappears even when the check
-    /// itself is skipped for being too recent.
-    func checkForUpdatesIfStale() {
-        bannerDismissed = false
-        guard Self.isCheckStale(lastCheck: lastUpdateCheckAt, now: Date(), interval: checkInterval)
-        else { return }
-        checkForUpdates(isManualCheck: false)
-    }
-
-    /// Recorded on every completed attempt, including failures — otherwise a dropped network
-    /// would re-fire a request on every single window open.
-    private func recordCheckCompleted() {
-        let now = Date()
-        lastUpdateCheckAt = now
-        UserDefaults.standard.set(now.timeIntervalSince1970, forKey: kLastUpdateCheckKey)
-    }
-
     func checkForUpdates(isManualCheck: Bool = false) {
         guard !isChecking && !isDownloading else { return }
 
@@ -157,7 +112,7 @@ final class UpdateManager: NSObject, ObservableObject, URLSessionDownloadDelegat
         request.setValue("MultiClips-App/\(currentVersion)", forHTTPHeaderField: "User-Agent")
         request.timeoutInterval = 15.0
 
-        Task {
+        Task { @MainActor in
             do {
                 let (data, response) = try await URLSession.shared.data(for: request)
 
@@ -167,11 +122,8 @@ final class UpdateManager: NSObject, ObservableObject, URLSessionDownloadDelegat
 
                 if httpResponse.statusCode == 404 {
                     self.isChecking = false
-                    self.recordCheckCompleted()
-                    // 404 means the repo has no published releases at all, which is not the
-                    // same as being current — say so rather than implying you are up to date.
                     if isManualCheck {
-                        self.errorMessage = "No published releases found for this repository."
+                        self.upToDateMessageShown = true
                     }
                     return
                 }
@@ -189,10 +141,8 @@ final class UpdateManager: NSObject, ObservableObject, URLSessionDownloadDelegat
                 let isNewer = self.isUpdateNewer(remote: remoteInfo, local: self.currentVersionInfo)
 
                 self.isChecking = false
-                self.recordCheckCompleted()
                 if isNewer {
                     self.updateAvailable = true
-                    self.bannerDismissed = false
                     self.upToDateMessageShown = false
                 } else {
                     self.updateAvailable = false
@@ -202,7 +152,6 @@ final class UpdateManager: NSObject, ObservableObject, URLSessionDownloadDelegat
                 }
             } catch {
                 self.isChecking = false
-                self.recordCheckCompleted()
                 if isManualCheck {
                     self.errorMessage = "Failed to check for updates: \(error.localizedDescription)"
                 }

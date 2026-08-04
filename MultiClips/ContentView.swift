@@ -112,6 +112,14 @@ struct ContentView: View {
                         .buttonStyle(.plain)
                         .listRowBackground(sidebarRowBackground(for: "settings:general"))
 
+                        Picker("Theme", selection: $selectedThemeRaw) {
+                            ForEach(ThemeOption.allCases) { theme in
+                                Text(theme.title).tag(theme.rawValue)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .listRowBackground(sidebarRowBackground(for: "settings:general"))
+
                         // Every settings row is laid out the same way: icon + text leading,
                         // control trailing. A plain Toggle puts its checkbox first, which
                         // pushed the icon and text out of the column the rest of the sidebar
@@ -198,13 +206,10 @@ struct ContentView: View {
                         .buttonStyle(.plain)
                         .listRowBackground(sidebarRowBackground(for: "about:versions"))
 
-                        // Scrolls with the list rather than pinned. It reads as a button
-                        // because CheckForUpdatesButton sets .bordered explicitly -- the
-                        // original problem was that it had no style and inherited the row's.
                         CheckForUpdatesButton(activeTheme: activeTheme)
-                            .padding(.top, 4)
-                            .padding(.bottom, 2)
-                            .listRowBackground(Color.clear)
+                            .foregroundStyle(sidebarRowForeground(for: "about:updates"))
+                            .tint(sidebarRowForeground(for: "about:updates"))
+                            .listRowBackground(sidebarRowBackground(for: "about:updates"))
                     }
                 }
                 .navigationTitle("MultiClips")
@@ -306,13 +311,7 @@ struct ClipGridView: View {
     @State private var duplicateGroups: [[Item]] = []
     @State private var selectedDateRange: (Date, Date)? = nil
     @State private var selectedTypes: Set<ClipType> = Set(ClipType.allCases)
-    /// Measured from the content pane so the toolbar filters can drop their labels when the
-    /// window is too narrow to carry them. macOS has no useful size class to read instead.
-    @State private var paneWidth: CGFloat = 0
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
-
-    /// Seven filters plus Find Duplicates only fit with labels on a wide window.
-    private var showsFilterLabels: Bool { paneWidth >= 980 }
 
     private var activeTheme: ThemeOption {
         ThemeOption(rawValue: selectedThemeRaw) ?? .orange
@@ -395,13 +394,6 @@ struct ClipGridView: View {
             )
         )
         .background(Color(nsColor: .windowBackgroundColor))
-        .background(
-            GeometryReader { geo in
-                Color.clear
-                    .onAppear { paneWidth = geo.size.width }
-                    .onChange(of: geo.size.width) { _, newValue in paneWidth = newValue }
-            }
-        )
         .navigationTitle(title)
         .searchable(text: $searchText, prompt: "Search clips")
         .toolbar {
@@ -409,39 +401,24 @@ struct ClipGridView: View {
             // control floating between the title and the search field. .primaryAction puts
             // it on the trailing edge, grouped with search where it belongs.
             ToolbarItemGroup(placement: .primaryAction) {
-                // Inline toggles rather than a dropdown: the active filters are readable at a
-                // glance instead of being hidden a click away. Labels drop out on a narrow
-                // window; .help keeps the name reachable as a hover tooltip either way.
-                ControlGroup {
-                    ForEach(ClipType.allCases, id: \.self) { type in
-                        Toggle(isOn: Binding(
-                            get: { selectedTypes.contains(type) },
-                            set: { if $0 { selectedTypes.insert(type) } else { selectedTypes.remove(type) } }
-                        )) {
-                            // SF Symbols have different intrinsic widths -- "Aa" is far wider
-                            // than a document glyph -- so without a fixed box each toggle sized
-                            // to its own icon and the row read as unevenly spaced. A square
-                            // frame makes every button identical and centres the glyph in it.
-                            if showsFilterLabels {
-                                Label {
-                                    Text(type.rawValue)
-                                } icon: {
-                                    Image(systemName: iconForType(type))
-                                        .frame(width: 16, height: 16)
-                                }
-                            } else {
-                                Image(systemName: iconForType(type))
-                                    .font(.system(size: 13))
-                                    .frame(width: 18, height: 18)
+                Menu {
+                    Section("Type Filter") {
+                        ForEach(ClipType.allCases, id: \.self) { type in
+                            Toggle(isOn: Binding(
+                                get: { selectedTypes.contains(type) },
+                                set: { if $0 { selectedTypes.insert(type) } else { selectedTypes.remove(type) } }
+                            )) {
+                                Label(type.rawValue, systemImage: iconForType(type))
                             }
                         }
-                        .toggleStyle(.button)
-                        .help("Show \(type.rawValue.lowercased()) clips")
                     }
+                    Divider()
+                    Button(action: detectDuplicates) {
+                        Label("Find Duplicates", systemImage: "doc.on.doc")
+                    }
+                } label: {
+                    Label("Filters", systemImage: "slider.horizontal.3")
                 }
-                // Without this the selected state falls back to the system accent and stays
-                // blue in every theme -- the same bug the detail sheet's Copy button had.
-                .tint(activeTheme.color)
             }
         }
     }
@@ -656,6 +633,65 @@ struct ClipDetailSheet: View {
         }
     }
 
+    private var noteBinding: Binding<String> {
+        Binding(
+            get: { noteText },
+            set: { newValue in
+                let trimmed = String(newValue.prefix(noteLimit))
+                noteText = trimmed
+
+                let normalized = trimmed.trimmingCharacters(in: .whitespacesAndNewlines)
+                let savedNote = normalized.isEmpty ? nil : normalized
+                if clip.note != savedNote {
+                    clip.note = savedNote
+                    try? modelContext.save()
+                }
+            }
+        )
+    }
+
+    private func togglePin() {
+        clip.isPinned.toggle()
+        try? modelContext.save()
+    }
+
+    private func toggleStar() {
+        clip.isStarred.toggle()
+        try? modelContext.save()
+    }
+
+    private func keepOnlyThisClip() {
+        let descriptor = FetchDescriptor<Item>()
+        let allClips = (try? modelContext.fetch(descriptor)) ?? []
+
+        for other in allClips where other.id != clip.id {
+            if isDuplicate(other, of: clip) {
+                modelContext.delete(other)
+            }
+        }
+
+        clip.isStarred = true
+        try? modelContext.save()
+    }
+
+    private func isDuplicate(_ other: Item, of current: Item) -> Bool {
+        guard other.type == current.type else { return false }
+
+        switch current.type {
+        case .Texts, .Links:
+            return other.textCopied == current.textCopied
+        case .Images:
+            if let u1 = other.files?.standardizedFileURL, let u2 = current.files?.standardizedFileURL, u1 == u2 {
+                return true
+            }
+            return other.rawData == current.rawData
+        case .Files, .Documents, .Medias:
+            return other.files?.standardizedFileURL == current.files?.standardizedFileURL
+        case .Unknown:
+            return other.rawData == current.rawData
+        }
+    }
+
     private func copyToPasteboard() {
         NotificationCenter.default.post(name: .skipNextPasteboardChange, object: nil)
         let pb = NSPasteboard.general
@@ -784,17 +820,7 @@ struct ClipCard: View {
                     Text(clip.textCopied ?? "Empty").lineLimit(4).font(.callout)
                 case .Images:
                     if let img = cachedImage {
-                        // Color.clear drives the layout and the image rides along as an
-                        // overlay, so the card's geometry never depends on the image's own
-                        // dimensions. As the window narrows the crop simply shows less of
-                        // the picture at the same scale, instead of shrinking to fit it in.
-                        Color.clear
-                            .overlay(alignment: .top) {
-                                Image(nsImage: img)
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                            }
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                        Image(nsImage: img).resizable().scaledToFill().frame(height: 60).clipped().cornerRadius(6)
                     } else {
                         Text("Image unavailable").foregroundStyle(.secondary)
                     }
@@ -806,6 +832,13 @@ struct ClipCard: View {
             }
             .frame(maxWidth: .infinity, minHeight: 72, maxHeight: 72, alignment: .topLeading)
             .clipped()
+
+            if let note = clip.note, !note.isEmpty {
+                Text(note)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
 
             if let note = clip.note, !note.isEmpty {
                 Text(note)
@@ -1274,6 +1307,7 @@ struct MenuBarClipActionsSheet: View {
 // MARK: - Credits View
 
 struct CreditsView: View {
+    @ObservedObject private var updateManager = UpdateManager.shared
     @AppStorage("selectedTheme") private var selectedThemeRaw = ThemeOption.orange.rawValue
 
     private var activeTheme: ThemeOption {
@@ -1308,6 +1342,8 @@ struct CreditsView: View {
                         systemImage: "person.2.fill",
                         destination: linkedInURL
                     )
+
+                    updatesRow
                 }
 
                 aboutBlock
@@ -1401,36 +1437,76 @@ struct CreditsView: View {
                 Image(systemName: systemImage)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(activeTheme.color)
-                    .frame(width: 28, height: 28)
-                    .background(Circle().fill(activeTheme.color.opacity(0.14)))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.callout.weight(.semibold))
+                        .font(.system(size: 12.5, weight: .medium))
+                        .foregroundStyle(.primary)
+
                     Text(subtitle)
-                        .font(.caption)
+                        .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }
 
                 Spacer()
 
                 Image(systemName: "arrow.up.right")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(activeTheme.color)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.tertiary)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(activeTheme.color.opacity(0.10))
-            )
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .background(Color(nsColor: .windowBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(activeTheme.color.opacity(0.18), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color.primary.opacity(0.09), lineWidth: 1)
             )
-            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+
+    private var updatesRow: some View {
+        Button {
+            updateManager.checkForUpdates(isManualCheck: true)
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "arrow.clockwise.circle.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(activeTheme.color)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(updateManager.isChecking ? "Checking for Updates..." : "Check for Updates")
+                        .font(.system(size: 12.5, weight: .medium))
+                        .foregroundStyle(.primary)
+
+                    Text(updateManager.updateAvailable ? "New version available!" : "You are on the latest build (\(versionLabel))")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                if updateManager.isChecking {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                } else {
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .background(Color(nsColor: .windowBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color.primary.opacity(0.09), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(updateManager.isChecking || updateManager.isDownloading)
     }
 }
 
@@ -1450,8 +1526,18 @@ struct VersionHistoryView: View {
     /// on every render and break ForEach identity.
     private let releases: [AppRelease] = [
         AppRelease(
-            version: "v2.1",
+            version: "v2.2",
             build: "Build \(UpdateManager.shared.currentBuildNumber)",
+            date: "3 Aug 2026",
+            highlights: [
+                "Redesigned UI: modern menu bar dropdown, release cards for Version History, and redesigned Credits view",
+                "Fixed window background transparency across dark/light themes",
+                "Fixed update banner notifications and network sandbox permissions"
+            ]
+        ),
+        AppRelease(
+            version: "v2.1",
+            build: "Build 9",
             date: "3 Aug 2026",
             highlights: [
                 "Redesigned menu bar with actions that appear on hover",

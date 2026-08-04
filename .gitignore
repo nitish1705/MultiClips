@@ -37,3 +37,9 @@ fastlane/test_output/
 
 # Local performance outputs
 performance-results/
+# Python cache
+__pycache__/
+*.pyc
+
+# Added by code-review-graph
+.code-review-graph/

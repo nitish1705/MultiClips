@@ -120,9 +120,21 @@ rm -f "$ZIP_NAMED_PATH" "$ZIP_GENERIC_PATH"
 ditto -c -k --sequesterRsrc --keepParent "$RELEASE_APP_PATH" "$ZIP_GENERIC_PATH"
 cp "$ZIP_GENERIC_PATH" "$ZIP_NAMED_PATH"
 
+# --- Step 6: Clean up build artifacts to prevent duplicates ---
+echo "Cleaning up build artifacts..."
+
+# Remove the .app bundles from build directories (prevent duplicate apps in Spotlight)
+rm -rf "$DMG_STAGING_PATH/MultiClips.app"
+rm -rf "$RELEASE_APP_PATH"
+
+# Keep only the release files (.dmg and .zip)
+echo "Kept release files, removed intermediate .app bundles"
+
 echo "=========================================="
 echo "🎉 Build Complete! (Build #$NEW_BUILD)"
 echo "DMG Output:   $DMG_OUTPUT_PATH"
 echo "ZIP Output:   $ZIP_GENERIC_PATH"
 echo "Named Zip:    $ZIP_NAMED_PATH"
+echo ""
+echo "Note: Build artifacts cleaned up automatically"
 echo "=========================================="

@@ -63,13 +63,6 @@ func normalizeVersion(_ versionString: String) -> [Int] {
     return result
 }
 
-func isCheckStale(lastCheck: Date?, now: Date, interval: TimeInterval) -> Bool {
-    guard let lastCheck else { return true }
-    let elapsed = now.timeIntervalSince(lastCheck)
-    guard elapsed >= 0 else { return false }
-    return elapsed >= interval
-}
-
 func isUpdateNewer(remote: AppVersionInfo, local: AppVersionInfo) -> Bool {
     let maxCount = max(remote.versionComponents.count, local.versionComponents.count)
     for i in 0..<maxCount {
@@ -145,24 +138,6 @@ check("2.10 is newer than 2.9, not older",
                                           buildNumber: 1, rawVersionString: "2.9")), true)
 check("build-only bump is an update",
       isUpdateNewer(remote: parseReleaseVersion(tag: "v2.1-b10", body: nil), local: local21b9), true)
-
-print("\n— the 5-minute staleness gate —")
-let interval: TimeInterval = 5 * 60
-let now = Date()
-check("never checked -> stale",
-      isCheckStale(lastCheck: nil, now: now, interval: interval), true)
-check("checked just now -> fresh",
-      isCheckStale(lastCheck: now, now: now, interval: interval), false)
-check("4m59s ago -> fresh",
-      isCheckStale(lastCheck: now.addingTimeInterval(-299), now: now, interval: interval), false)
-check("exactly 5m ago -> stale",
-      isCheckStale(lastCheck: now.addingTimeInterval(-300), now: now, interval: interval), true)
-check("an hour ago -> stale",
-      isCheckStale(lastCheck: now.addingTimeInterval(-3600), now: now, interval: interval), true)
-// Clock skew, or the user moved their clock back: a future timestamp must not make every
-// window open re-check.
-check("timestamp in the future -> fresh, not stale",
-      isCheckStale(lastCheck: now.addingTimeInterval(600), now: now, interval: interval), false)
 
 print("\n— banner text —")
 check("displayString already carries its own parentheses",

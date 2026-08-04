@@ -37,10 +37,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.checkPasteboard()
         }
 
-        // Background auto-update check on startup, gated on the 5-minute staleness window so
-        // relaunching twice in quick succession does not re-hit the API.
+        // Background auto-update check on startup
         DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-            UpdateManager.shared.checkForUpdatesIfStale()
+            UpdateManager.shared.checkForUpdates(isManualCheck: false)
         }
     }
 
