@@ -252,8 +252,6 @@ private struct ToastStrip: View {
     @State private var remaining: TimeInterval = 5
     @State private var isHovered = false
 
-    private var progress: Double { max(0, remaining) / lifetime }
-
     var body: some View {
         HStack(spacing: 9) {
             Image(systemName: icon)
@@ -281,19 +279,6 @@ private struct ToastStrip: View {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .stroke(tint.opacity(0.28), lineWidth: 1)
         )
-        // Countdown bar hugging the bottom edge, the way toastify draws it.
-        .overlay(alignment: .bottom) {
-            GeometryReader { geo in
-                Capsule()
-                    .fill(tint)
-                    .frame(width: geo.size.width * progress)
-                    .opacity(isHovered ? 0.45 : 0.9)
-            }
-            .frame(height: 2.5)
-            .padding(.horizontal, 6)
-            .padding(.bottom, 2)
-            .animation(.linear(duration: tick), value: remaining)
-        }
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .onHover { isHovered = $0 }
         .padding(.horizontal, 16)
