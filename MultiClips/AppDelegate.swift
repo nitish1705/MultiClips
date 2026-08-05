@@ -8,7 +8,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var lastChangeCount: Int = NSPasteboard.general.changeCount
     private var skipNextPasteboardChange = false
     private var timer: Timer?
-    private var updateCheckTimer: Timer?
     private var eventMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -36,18 +35,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Start the pasteboard monitoring timer
         timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             self?.checkPasteboard()
-        }
-
-        // Background auto-update check on startup
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-            UpdateManager.shared.checkForUpdates(isManualCheck: false)
-        }
-
-        // Periodic auto-update check every 1 hour (3600 seconds)
-        updateCheckTimer = Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { _ in
-            Task { @MainActor in
-                UpdateManager.shared.checkForUpdates(isManualCheck: false)
-            }
         }
     }
 
@@ -264,10 +251,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func showMainWindow() {
         NSApplication.shared.activate(ignoringOtherApps: true)
-
-        // Single funnel for every way the window opens — hotkey, dock reopen, menu bar Open.
-        // Re-shows a dismissed banner, and checks only if the last check is over 5 minutes old.
-        UpdateManager.shared.checkForUpdates()
 
         for window in NSApplication.shared.windows {
             if window.canBecomeMain {

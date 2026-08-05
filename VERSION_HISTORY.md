@@ -1,10 +1,11 @@
 # 📜 MultiClips Version History
 
-## v2.3 Build 12 (Latest) - August 4, 2026
+## v2.3 Build 14 (Latest) - August 5, 2026
 
-### ⚙️ Settings & Auto-Update Polish
+### ⚙️ Manual Update Checks & 403 Rate Limit Handling
+- **Manual-Only Update Checks**: Disabled automatic startup and periodic background API calls to prevent unintended rate limit consumption; update checks are now strictly user-initiated
+- **User-Friendly Error Display**: Replaced raw technical error titles (such as "GitHub API returned status 403") with clean, non-intrusive messages for end users
 - **Streamlined Sidebar Settings**: Removed unused General Settings row and eliminated duplicate Theme selector dropdown
-- **Hourly GitHub Auto-Update Checks**: Background timer now automatically checks GitHub API for new releases every 1 hour
 - **Non-Disruptive Floating Toast Overlay**: Rebuilt update banner into a sleek glassmorphic floating toast overlay with auto-dismiss after 3.5 seconds
 
 ---

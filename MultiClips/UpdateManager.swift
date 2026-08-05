@@ -152,8 +152,17 @@ final class UpdateManager: NSObject, ObservableObject, URLSessionDownloadDelegat
                     return
                 }
 
+                if httpResponse.statusCode == 403 {
+                    self.isChecking = false
+                    self.recordCheckCompleted()
+                    if isManualCheck {
+                        self.errorMessage = "Unable to check for updates right now. Please try again later."
+                    }
+                    return
+                }
+
                 guard httpResponse.statusCode == 200 else {
-                    throw NSError(domain: "UpdateManager", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "GitHub API returned status \(httpResponse.statusCode)."])
+                    throw NSError(domain: "UpdateManager", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "Server returned status \(httpResponse.statusCode)."])
                 }
 
                 let release = try JSONDecoder().decode(GitHubRelease.self, from: data)
@@ -179,7 +188,7 @@ final class UpdateManager: NSObject, ObservableObject, URLSessionDownloadDelegat
                 self.isChecking = false
                 self.recordCheckCompleted()
                 if isManualCheck {
-                    self.errorMessage = "Failed to check for updates: \(error.localizedDescription)"
+                    self.errorMessage = "Unable to check for updates. Please try again later."
                 }
             }
         }
